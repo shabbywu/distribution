@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -81,3 +81,33 @@ class ManifestSchema2(BaseModel):
     @property
     def content_type(self) -> str:
         return "application/vnd.docker.distribution.manifest.v2+json"
+
+
+class OCIContainerDescriptor(BaseModel):
+    """A Content Descriptor (or simply Descriptor) describes the disposition of the targeted content.
+
+    spec: https://github.com/opencontainers/image-spec/blob/main/descriptor.md
+    """
+    mediaType: str
+    digest: str
+    size: int
+    urls: List[str] = Field(default_factory=list)
+    annotations: Dict[str, str] = Field(default_factory=dict)
+    data: Optional[Any]
+
+
+class OCIManifestSchema(BaseModel):
+    """image manifest for the OCI Image
+
+    spec: https://github.com/opencontainers/image-spec/blob/main/manifest.md
+    """
+
+    schemaVersion: int
+    mediaType: str = "application/vnd.docker.distribution.manifest.v2+json"
+    config: OCIContainerDescriptor
+    layers: List[OCIContainerDescriptor]
+    annotations: Dict[str, str] = Field(default_factory=dict)
+
+    @property
+    def content_type(self) -> str:
+        return "application/vnd.oci.image.manifest.v1+json"

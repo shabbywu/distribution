@@ -21,13 +21,13 @@ class AuthFailed(RequestErrorWithResponse):
     """Auth Failed for registry"""
 
 
-class RetryAgain:
+class RetryAgain(Exception):
     """Dummy Exception to mark retry"""
 
 
-class PermissionDeny:
+class PermissionDeny(Exception):
     """Permission deny for endpoints or resources"""
 
 
-class ResourceNotFound:
+class ResourceNotFound(Exception):
     """Resources not found."""

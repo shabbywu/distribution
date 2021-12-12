@@ -69,7 +69,7 @@ class DistributionClient:
     ) -> manifest.ManifestSchema2:
         """pull docker manifest schema v2"""
         headers = {
-            "Content-Type": "application/vnd.docker.distribution.manifest.v2+json"
+            "Accept": "application/vnd.docker.distribution.manifest.v2+json"
         }
         url = f"{self.endpoint}/v2/{repo}/manifests/{reference}"
         data = self._request(self.session.get, url=url, headers=headers).json()
@@ -78,7 +78,14 @@ class DistributionClient:
 
     def pull_manifest_oci_v1(self, repo: str, reference: str = "latest"):
         """pull oci manifest schema v1"""
-        raise NotImplementedError
+        headers = {
+            "Accept": "application/vnd.oci.image.manifest.v1+json"
+        }
+        url = f"{self.endpoint}/v2/{repo}/manifests/{reference}"
+        data = self._request(self.session.get, url=url, headers=headers).json()
+
+        assert data["schemaVersion"] == 2, "This Registry does not support oci image"
+        return manifest.OCIManifestSchema(**data)
 
     def pull_blob(
         self, repo: str, digest: str, stream: bool = False
