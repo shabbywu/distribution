@@ -51,15 +51,15 @@ APIEndpoint(url="https://registry.hub.docker.com")
 APIEndpoint(url="registry.hub.docker.com")
 ```
 
-if the scheme is missing, we will detect whether the server provides ssl and verify the certificate.
+if the scheme is missing, we will detect whether the server provides ssl and verify the certificate.   
+
 If no ssl: use http(80).
-If have ssl, but certificate is invalid:
+If have ssl, but certificate is invalid:   
   - try to ping the registry with https(443), if success, use it
   - otherwise, downgrade to http(80)
 If have ssl and valid certificate: use https(443)
 
-
-We provide an anonymous client connected to Docker Official Registry as default, you can find it at `moby_distribution.default_client`,
+We provide an anonymous client connected to Docker Official Registry as default, you can find it at `moby_distribution.default_client`, 
 and you can override the default client by `set_default_client(client)`.
 
 ### Example
