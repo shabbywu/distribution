@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from moby_distribution.registry.client import RegistryHttpV2Client
+from moby_distribution.registry.client import DockerRegistryV2Client
 from moby_distribution.spec.endpoint import APIEndpoint
 
 
@@ -19,4 +19,4 @@ def setup(registry_endpoint):
 
 @pytest.fixture
 def registry_client(registry_endpoint):
-    return RegistryHttpV2Client.from_api_endpoint(APIEndpoint(url=registry_endpoint))
+    return DockerRegistryV2Client.from_api_endpoint(APIEndpoint(url=registry_endpoint))

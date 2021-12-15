@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 import libtrust
 
-from moby_distribution.registry.client import DefaultRegistryClient, RegistryHttpV2Client, URLBuilder
+from moby_distribution.registry.client import DockerRegistryV2Client, URLBuilder, default_client
 from moby_distribution.registry.exceptions import ResourceNotFound, UnSupportMediaType
 from moby_distribution.registry.resources import RepositoryResource
 from moby_distribution.registry.utils import get_private_key
@@ -20,7 +20,7 @@ class ManifestRef(RepositoryResource):
         self,
         repo: str,
         reference: str = "latest",
-        client: RegistryHttpV2Client = DefaultRegistryClient,
+        client: DockerRegistryV2Client = default_client,
     ):
         super().__init__(repo, client)
         self.reference = reference

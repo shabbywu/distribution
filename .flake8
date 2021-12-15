@@ -4,6 +4,7 @@ exclude =
     */conftest.py,
     tests/registry/test_auth.py,
     tests/registry/test_utils.py,
+    moby_distribution/__init__.py,
 max-line-length=119
 max-complexity=12
 format=pylint

@@ -10,7 +10,7 @@ from moby_distribution.spec.auth import TokenResponse
 from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT, APIEndpoint
 
 
-class RegistryHttpV2Client:
+class DockerRegistryV2Client:
     """A Client implement APIs of Docker Registry HTTP API V2 and OCI Distribution Spec API
 
     spec: https://github.com/distribution/distribution/blob/main/docs/spec/api.md
@@ -151,10 +151,10 @@ class URLBuilder:
         return f"{endpoint}/v2/{repo}/tags/list"
 
 
-DefaultRegistryClient = cast(
-    RegistryHttpV2Client, LazyProxy(lambda: RegistryHttpV2Client.from_api_endpoint(OFFICIAL_ENDPOINT))
+default_client = cast(
+    DockerRegistryV2Client, LazyProxy(lambda: DockerRegistryV2Client.from_api_endpoint(OFFICIAL_ENDPOINT))
 )
 
 
-def set_default_client(client: RegistryHttpV2Client):
-    DefaultRegistryClient.__dict__["_wrapped"] = client
+def set_default_client(client: DockerRegistryV2Client):
+    default_client.__dict__["_wrapped"] = client

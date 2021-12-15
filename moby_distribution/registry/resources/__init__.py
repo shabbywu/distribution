@@ -1,13 +1,13 @@
 from typing import Optional
 
-from moby_distribution.registry.client import DefaultRegistryClient, RegistryHttpV2Client
+from moby_distribution.registry.client import DockerRegistryV2Client, default_client
 
 
 class RepositoryResource:
     def __init__(
         self,
         repo: str,
-        client: Optional[RegistryHttpV2Client] = DefaultRegistryClient,
+        client: Optional[DockerRegistryV2Client] = default_client,
     ):
         self.repo = repo
         if client is not None:
@@ -20,5 +20,5 @@ class RepositoryResource:
         raise RuntimeError("Resource must bind Client")
 
     @client.setter
-    def client(self, v: RegistryHttpV2Client):
+    def client(self, v: DockerRegistryV2Client):
         self._client = v

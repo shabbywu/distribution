@@ -1,24 +1,19 @@
-from moby_distribution.registry.client import (
-    DefaultRegistryClient,
-    RegistryHttpV2Client,
-    URLBuilder,
-    set_default_client,
-)
+from moby_distribution.registry.client import DockerRegistryV2Client, URLBuilder, default_client, set_default_client
 from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT
 
 
-class TestRegistryHttpV2Client:
+class TestDockerRegistryV2Client:
     def test_ping(self, registry_client):
         assert registry_client.ping()
 
     def test_set_default_client(self, registry_client, registry_endpoint):
         set_default_client(registry_client)
-        assert DefaultRegistryClient.api_base_url == registry_endpoint
+        assert default_client.api_base_url == registry_endpoint
 
     def test_from_api_endpoint(self):
-        set_default_client(RegistryHttpV2Client.from_api_endpoint(OFFICIAL_ENDPOINT))
+        set_default_client(DockerRegistryV2Client.from_api_endpoint(OFFICIAL_ENDPOINT))
 
-        assert DefaultRegistryClient.api_base_url == "https://" + OFFICIAL_ENDPOINT.api_base_url
+        assert default_client.api_base_url == "https://" + OFFICIAL_ENDPOINT.api_base_url
 
 
 class TestURLBuilder:

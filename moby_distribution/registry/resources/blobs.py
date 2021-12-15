@@ -1,45 +1,48 @@
 import hashlib
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import BinaryIO, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from moby_distribution.registry import exceptions
-from moby_distribution.registry.client import DefaultRegistryClient, RegistryHttpV2Client, URLBuilder
+from moby_distribution.registry.client import DockerRegistryV2Client, URLBuilder, default_client
 from moby_distribution.registry.resources import RepositoryResource
 
 
 class Blob(RepositoryResource):
     def __init__(
         self,
-        local_path: Union[Path, str],
         repo: str,
         digest: Optional[str] = None,
-        client: RegistryHttpV2Client = DefaultRegistryClient,
+        local_path: Optional[Union[Path, str]] = None,
+        fileobj: Optional[BinaryIO] = None,
+        client: DockerRegistryV2Client = default_client,
     ):
         super().__init__(repo, client)
         if isinstance(local_path, str):
             local_path = Path(local_path)
-        self.local_path = local_path
+
+        self._accessor = Accessor(local_path=local_path, fileobj=fileobj)
         self.digest = digest
 
     def download(self, digest: Optional[str] = None):
-        """download the blob from registry to `local_path`"""
+        """download the blob from registry to `local_path` or `fileobj`"""
         digest = digest or self.digest
         if digest is None:
             raise RuntimeError("unknown digest")
 
         url = URLBuilder.build_blobs_url(self.client.api_base_url, repo=self.repo, digest=digest)
         resp = self.client.get(url=url, stream=True)
-        with self.local_path.open(mode="wb") as fh:
+        with self._accessor.open(mode="wb") as fh:
             for chunk in resp.iter_content(chunk_size=1024):
                 fh.write(chunk)
 
     def upload(self) -> bool:
-        """upload the blob from `local_path` to the registry by streaming"""
+        """upload the blob from `local_path` or `fileobj` to the registry by streaming"""
         uuid, location = self._initiate_blob_upload()
         blob = BlobWriter(uuid, location, client=self.client)
         sha256 = hashlib.sha256()
-        with self.local_path.open(mode="rb") as fh:
+        with self._accessor.open(mode="rb") as fh:
             chunk = fh.read(1024 * 1024 * 4)
             sha256.update(chunk)
             blob.write(chunk)
@@ -51,8 +54,8 @@ class Blob(RepositoryResource):
         return False
 
     def upload_at_one_time(self):
-        """upload the monolithic from `local_path` to the registry at one time."""
-        data = self.local_path.read_bytes()
+        """upload the monolithic blob from `local_path` or `fileobj` to the registry at one time."""
+        data = self._accessor.read_bytes()
         digest = f"sha256:{hashlib.sha256(data).hexdigest()}"
 
         headers = {"content_type": "application/octect-stream"}
@@ -95,7 +98,7 @@ class Blob(RepositoryResource):
 
 
 class BlobWriter:
-    def __init__(self, uuid: str, location: str, client: RegistryHttpV2Client):
+    def __init__(self, uuid: str, location: str, client: DockerRegistryV2Client):
         self.uuid = uuid
         self.location = location
         self.client = client
@@ -136,3 +139,27 @@ class BlobWriter:
             )
         self._committed = True
         return True
+
+
+class Accessor:
+    def __init__(self, local_path: Optional[Path] = None, fileobj: Optional[BinaryIO] = None):
+        if not local_path and not fileobj:
+            raise ValueError("Nothing to operate")
+        if local_path and fileobj:
+            raise ValueError("Cannot be provided `local_path` and `fileobj` at the same time")
+        self.local_path = local_path
+        self.fileobj = fileobj
+
+    @contextmanager
+    def open(self, *args, **kwargs):
+        if self.fileobj:
+            yield self.fileobj
+        else:
+            with self.local_path.open(*args, **kwargs) as fh:
+                yield fh
+
+    def read_bytes(self):
+        if self.fileobj:
+            self.fileobj.seek(0)
+            return self.fileobj.read()
+        return self.local_path.read_bytes()
