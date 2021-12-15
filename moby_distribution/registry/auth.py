@@ -6,9 +6,8 @@ from typing import Optional
 import requests
 from www_authenticate import parse
 
+from moby_distribution.registry.exceptions import AuthFailed
 from moby_distribution.spec.auth import TokenResponse
-from moby_distribution.exceptions import AuthFailed
-
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +34,7 @@ class DockerRegistryTokenAuthentication:
         self.scope = self.bearer.get("scope", None)
         self.offline_token = offline_token
 
-    def authenticate(
-        self, username: Optional[str] = None, password: Optional[str] = None
-    ) -> TokenResponse:
+    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> TokenResponse:
         """Authenticate to the registry.
         If no username and password provided, will authenticate as the anonymous user.
 

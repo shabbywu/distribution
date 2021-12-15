@@ -1,7 +1,9 @@
-import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+
+from moby_distribution.registry.utils import validate_media_type
+from moby_distribution.spec.base import Descriptor, Platform
 
 
 class FileSystemLayer(BaseModel):
@@ -34,39 +36,42 @@ class ManifestSchema1(BaseModel):
     history: List[Schema1History]
     signatures: Optional[List[JWS]]
 
-    @property
-    def content_type(self) -> str:
+    @staticmethod
+    def content_type() -> str:
         return "application/vnd.docker.distribution.manifest.v1+prettyjws"
 
+    @validator("schemaVersion")
+    def validate_schema_version(cls, v):
+        if v != 1:
+            raise ValueError("schema version of ManifestSchema1 MUST be 1")
+        return v
 
-class Platform(BaseModel):
-    architecture: str
-    os: str
-    os_version: str = Field(alias="os.version")
-    os_features: Optional[List[str]] = Field(alias="os.features")
-    variant: str
+
+class PlatformSpec(Platform):
+    """
+    PlatformSpec specifies a platform where a particular image manifest is applicable.
+    """
+
     features: Optional[List[str]]
 
 
-class PlatformManifest(BaseModel):
-    """Image Manifest for specific platform"""
+class DockerManifestConfigDescriptor(Descriptor):
+    @staticmethod
+    def content_type() -> str:
+        return "application/vnd.docker.container.image.v1+json"
 
-    mediaType: str
-    size: int
-    digest: str
-    platform: Platform
-
-
-class ManifestConfig(BaseModel):
-    mediaType: str = "application/vnd.docker.container.image.v1+json"
-    size: int
-    digest: str
+    _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
 
 
-class ManifestLayer(BaseModel):
-    mediaType: str = "application/vnd.docker.image.rootfs.diff.tar.gzip"
-    size: str
-    digest: str
+class DockerManifestLayerDescriptor(Descriptor):
+    @staticmethod
+    def content_types() -> List[str]:
+        return [
+            "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
+        ]
+
+    _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
 
 
 class ManifestSchema2(BaseModel):
@@ -75,39 +80,69 @@ class ManifestSchema2(BaseModel):
 
     schemaVersion: int
     mediaType: str = "application/vnd.docker.distribution.manifest.v2+json"
-    config: ManifestConfig
-    layers: List[ManifestLayer]
+    config: DockerManifestConfigDescriptor
+    layers: List[DockerManifestLayerDescriptor]
 
-    @property
-    def content_type(self) -> str:
+    @staticmethod
+    def content_type() -> str:
         return "application/vnd.docker.distribution.manifest.v2+json"
 
+    @validator("schemaVersion")
+    def validate_schema_version(cls, v):
+        if v != 2:
+            raise ValueError("schema version of ManifestSchema2 MUST be 2")
+        return v
 
-class OCIContainerDescriptor(BaseModel):
-    """A Content Descriptor (or simply Descriptor) describes the disposition of the targeted content.
-
-    spec: https://github.com/opencontainers/image-spec/blob/main/descriptor.md
-    """
-    mediaType: str
-    digest: str
-    size: int
-    urls: List[str] = Field(default_factory=list)
-    annotations: Dict[str, str] = Field(default_factory=dict)
-    data: Optional[Any]
+    _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
 
 
-class OCIManifestSchema(BaseModel):
+class OCIManifestConfigDescriptor(Descriptor):
+    @staticmethod
+    def content_type() -> str:
+        return "application/vnd.oci.image.config.v1+json"
+
+    _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
+
+
+class OCIManifestLayerDescriptor(Descriptor):
+    @staticmethod
+    def content_types() -> List[str]:
+        return [
+            "application/vnd.oci.image.layer.v1.tar",
+            "application/vnd.oci.image.layer.v1.tar+gzip",
+            "application/vnd.oci.image.layer.nondistributable.v1.tar",
+            "application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
+        ]
+
+    _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
+
+
+class OCIManifestSchema1(BaseModel):
     """image manifest for the OCI Image
 
     spec: https://github.com/opencontainers/image-spec/blob/main/manifest.md
     """
 
     schemaVersion: int
-    mediaType: str = "application/vnd.docker.distribution.manifest.v2+json"
-    config: OCIContainerDescriptor
-    layers: List[OCIContainerDescriptor]
+    mediaType: str = "application/vnd.oci.image.manifest.v1+json"
+    config: OCIManifestConfigDescriptor
+    layers: List[OCIManifestLayerDescriptor]
     annotations: Dict[str, str] = Field(default_factory=dict)
 
-    @property
-    def content_type(self) -> str:
+    @staticmethod
+    def content_type() -> str:
         return "application/vnd.oci.image.manifest.v1+json"
+
+    @validator("schemaVersion")
+    def validate_schema_version(cls, v):
+        if v != 2:
+            raise ValueError("schema version of OCIManifestSchema1 MUST be 2")
+        return v
+
+    _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
+
+
+class ManifestDescriptor(Descriptor):
+    """ManifestDescriptor references a platform-specific manifest."""
+
+    platform: Optional[PlatformSpec]

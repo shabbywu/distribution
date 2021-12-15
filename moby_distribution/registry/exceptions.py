@@ -31,3 +31,7 @@ class PermissionDeny(Exception):
 
 class ResourceNotFound(Exception):
     """Resources not found."""
+
+
+class UnSupportMediaType(Exception):
+    """raise when the media type is unsupported"""

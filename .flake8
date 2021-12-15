@@ -1,0 +1,12 @@
+[flake8]
+ignore = F405,F403,W504,E741,E125,W503,F841,E203,E231,F541
+exclude =
+    */conftest.py,
+    tests/registry/test_auth.py,
+    tests/registry/test_utils.py,
+max-line-length=119
+max-complexity=12
+format=pylint
+show_source = True
+statistics = True
+count = True

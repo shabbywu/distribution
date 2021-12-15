@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,8 @@ class TokenResponse(BaseModel):
 
     token: str = Field(
         ...,
-        description="An opaque Bearer token that clients should supply to subsequent requests in the Authorization header.",
+        description="An opaque Bearer token that clients should "
+        "supply to subsequent requests in the Authorization header.",
     )
     access_token: Optional[str] = Field(
         None,
@@ -28,5 +29,6 @@ class TokenResponse(BaseModel):
     )
     refresh_token: Optional[str] = Field(
         None,
-        description="Token which can be used to get additional access tokens for the same subject with different scopes. ",
+        description="Token which can be used to get additional access tokens "
+        "for the same subject with different scopes. ",
     )
