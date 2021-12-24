@@ -10,7 +10,7 @@ Works for Python 3.6+.
 You can install from PyPi.
 
 ```bash
-❯ pip install py-libtrust
+❯ pip install moby-distribution
 ```
 
 Or install from GitHub for latest version.
