@@ -14,12 +14,17 @@ def repo() -> str:
 
 
 @pytest.fixture
-def reference():
+def reference() -> str:
     return "2.7.1"
 
 
 @pytest.fixture
-def temp_reference():
+def temp_repo() -> str:
+    return "".join(random.choices(string.ascii_lowercase, k=10))
+
+
+@pytest.fixture
+def temp_reference() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=10))
 
 

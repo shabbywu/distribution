@@ -4,6 +4,7 @@ from io import BytesIO
 
 import pytest
 
+from moby_distribution.registry.exceptions import ResourceNotFound
 from moby_distribution.registry.resources.blobs import Blob
 from moby_distribution.registry.resources.manifests import ManifestRef
 
@@ -37,3 +38,23 @@ class TestBlob:
         fh2.seek(0)
 
         assert fh1.read() == fh2.read()
+
+    def test_mount_from_and_delete(self, repo, reference, temp_repo, registry_client):
+        ref = ManifestRef(repo=repo, reference=reference, client=registry_client)
+        manifest = ref.get()
+
+        fh1 = BytesIO()
+        Blob(fileobj=fh1, repo=repo, digest=manifest.config.digest, client=registry_client).download()
+        fh1.seek(0)
+
+        assert Blob(repo=temp_repo, digest=manifest.config.digest, client=registry_client).mount_from(repo)
+
+        fh2 = BytesIO()
+        Blob(fileobj=fh2, repo=temp_repo, digest=manifest.config.digest, client=registry_client).download()
+        fh2.seek(0)
+
+        assert fh2.read() == fh1.read()
+
+        Blob(repo=temp_repo, client=registry_client).delete(manifest.config.digest)
+        with pytest.raises(ResourceNotFound):
+            Blob(fileobj=fh2, repo=temp_repo, client=registry_client).download(digest=manifest.config.digest)

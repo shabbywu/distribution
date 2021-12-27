@@ -22,8 +22,16 @@ class Blob(RepositoryResource):
         if isinstance(local_path, str):
             local_path = Path(local_path)
 
-        self._accessor = Accessor(local_path=local_path, fileobj=fileobj)
         self.digest = digest
+        self.local_path = local_path
+        self.fileobj = fileobj
+        self._accessor = None
+
+    @property
+    def accessor(self):
+        if self._accessor is None:
+            self._accessor = Accessor(local_path=self.local_path, fileobj=self.fileobj)
+        return self._accessor
 
     def download(self, digest: Optional[str] = None):
         """download the blob from registry to `local_path` or `fileobj`"""
@@ -33,7 +41,7 @@ class Blob(RepositoryResource):
 
         url = URLBuilder.build_blobs_url(self.client.api_base_url, repo=self.repo, digest=digest)
         resp = self.client.get(url=url, stream=True)
-        with self._accessor.open(mode="wb") as fh:
+        with self.accessor.open(mode="wb") as fh:
             for chunk in resp.iter_content(chunk_size=1024):
                 fh.write(chunk)
 
@@ -42,7 +50,7 @@ class Blob(RepositoryResource):
         uuid, location = self._initiate_blob_upload()
         blob = BlobWriter(uuid, location, client=self.client)
         sha256 = hashlib.sha256()
-        with self._accessor.open(mode="rb") as fh:
+        with self.accessor.open(mode="rb") as fh:
             chunk = fh.read(1024 * 1024 * 4)
             sha256.update(chunk)
             blob.write(chunk)
@@ -55,7 +63,7 @@ class Blob(RepositoryResource):
 
     def upload_at_one_time(self):
         """upload the monolithic blob from `local_path` or `fileobj` to the registry at one time."""
-        data = self._accessor.read_bytes()
+        data = self.accessor.read_bytes()
         digest = f"sha256:{hashlib.sha256(data).hexdigest()}"
 
         headers = {"content_type": "application/octect-stream"}
@@ -64,7 +72,7 @@ class Blob(RepositoryResource):
         uuid, location = self._initiate_blob_upload()
         resp = self.client.put(url=location, headers=headers, params=params, data=data)
 
-        if not resp.ok:
+        if resp.status_code != 201:
             raise exceptions.RequestErrorWithResponse("failed to upload", status_code=resp.status_code, response=resp)
         self.digest = digest
         return True
@@ -96,6 +104,35 @@ class Blob(RepositoryResource):
             location = f"{self.client.api_base_url}/{location.lstrip('/')}"
         return uuid, location
 
+    def mount_from(self, from_repo: str) -> bool:
+        """Mount the blob from the given repo, if the client has read access to."""
+        if self.digest is None:
+            raise RuntimeError("unknown digest")
+
+        url = URLBuilder.build_upload_blobs_url(self.client.api_base_url, self.repo)
+        resp = self.client.post(url=url, params={"from": from_repo, "mount": self.digest})
+
+        # If the blob is successfully mounted, the client will receive a `201` Created response
+        if resp.status_code != 201:
+            raise exceptions.RequestErrorWithResponse(
+                f"failed to mount blob({self.digest}) from `{from_repo}`", status_code=resp.status_code, response=resp
+            )
+        return True
+
+    def delete(self, digest: Optional[str] = None):
+        """Delete the blob identified by repo and digest"""
+        digest = digest or self.digest
+        if digest is None:
+            raise RuntimeError("unknown digest")
+
+        url = URLBuilder.build_blobs_url(self.client.api_base_url, repo=self.repo, digest=digest)
+        resp = self.client.delete(url=url)
+        if resp.status_code != 202:
+            raise exceptions.RequestErrorWithResponse(
+                f"failed to delete blob({self.digest}) from `{self.repo}`", status_code=resp.status_code, response=resp
+            )
+        return True
+
 
 class BlobWriter:
     def __init__(self, uuid: str, location: str, client: DockerRegistryV2Client):
@@ -112,7 +149,7 @@ class BlobWriter:
         }
         resp = self.client.patch(url=self.location, data=buffer, headers=headers)
 
-        if not resp.ok:
+        if resp.status_code != 202:
             raise exceptions.RequestErrorWithResponse(
                 "fail to upload a chunk of blobs",
                 status_code=resp.status_code,
@@ -131,7 +168,7 @@ class BlobWriter:
     def commit(self, digest: str) -> bool:
         params = {"digest": digest}
         resp = self.client.put(url=self.location, params=params)
-        if not resp.ok:
+        if resp.status_code != 201:
             raise exceptions.RequestErrorWithResponse(
                 "can't commit an upload process",
                 status_code=resp.status_code,
