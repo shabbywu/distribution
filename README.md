@@ -30,13 +30,15 @@ The API provides several classes: `ManifestRef`, `Blob`, `Tags`, `DockerRegistry
 
 `Blob` has the following methods:
 - `download(digest)` download the blob from registry to `local_path` or `fileobj`
-- `upload` upload the blob from `local_path` or `fileobj` to the registry by streaming
-- `upload_at_one_time` upload the monolithic blob from `local_path` or `fileobj` to the registry at one time.
+- `upload()` upload the blob from `local_path` or `fileobj` to the registry by streaming
+- `upload_at_one_time()` upload the monolithic blob from `local_path` or `fileobj` to the registry at one time.
+- `mount_from(from_repo)` mount the blob from the given repo, if the client has read access to.
+- `delete(digest)` delete the blob at the registry.
 
 `Tags` has the following methods:
 - `list()` return the list of tags in the repo
-- `get()` retrieve the manifest descriptor identified by the tag.
-- `untag` work like `ManifestRef.delete()`
+- `get(tag)` retrieve the manifest descriptor identified by the tag.
+- `untag(tag)` work like `ManifestRef.delete()`
 
 `DockerRegistryV2Client` has the following methods:
 - `from_api_endpoint(api_endpoint, username, password)` initial a client to the `api_endpoint` with `username` and `password`
