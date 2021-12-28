@@ -7,7 +7,7 @@ from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT, APIEndpoint
 from moby_distribution.spec.image_json import ImageJSON
 from moby_distribution.spec.manifest import ManifestSchema1, ManifestSchema2, OCIManifestSchema1
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __ALL__ = [
     "DockerRegistryV2Client",
     "Blob",

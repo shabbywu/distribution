@@ -17,7 +17,7 @@ class Blob(RepositoryResource):
         repo: str,
         digest: Optional[str] = None,
         local_path: Optional[Union[Path, str]] = None,
-        fileobj: Optional[Union[BinaryIO, 'HashSigner']] = None,
+        fileobj: Optional[Union[BinaryIO, 'HashSignWrapper']] = None,
         client: DockerRegistryV2Client = default_client,
     ):
         super().__init__(repo, client)
@@ -48,8 +48,8 @@ class Blob(RepositoryResource):
             # Content-Type: application/octet-stream
             mediaType=headers["Content-Type"],
             size=headers["Content-Length"],
-            digest=headers["Docker-Content-Digest"],
-            urls=[url],
+            digest=headers.get("Docker-Content-Digest", digest),
+            urls=[headers.get("Location", url)],
         )
 
     def download(self, digest: Optional[str] = None):
@@ -69,7 +69,7 @@ class Blob(RepositoryResource):
         uuid, location = self._initiate_blob_upload()
         blob = BlobWriter(uuid, location, client=self.client)
         with self.accessor.open(mode="rb") as fh:
-            signer = HashSigner(fh=blob)
+            signer = HashSignWrapper(fh=blob)
             shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024 * 1024 * 4)
 
         digest = signer.digest()
@@ -234,7 +234,16 @@ class CounterIO:
         return self.size
 
 
-class HashSigner:
+class HashSignWrapper:
+    """A Wrapper can sign the content of fh when copying it.
+
+    Usage:
+    >>> import shutil
+    >>> src = open("somewhere", mode="rb")
+    >>> dest = HashSignWrapper(open("somewhere", mode="wb"))
+    >>> shutil.copyfileobj(src, dest)
+    """
+
     def __init__(self, fh: Union[BinaryIO, CounterIO, BlobWriter] = CounterIO(), constructor=hashlib.sha256):
         self._raw_fh = fh
         self.signer = constructor()
