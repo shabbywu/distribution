@@ -1,6 +1,10 @@
 import logging
 import os
-from typing import Any, Callable, Union
+import shutil
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Callable, ContextManager, Iterator, Union
 
 import libtrust
 from libtrust.keys import ec_key, rs_key
@@ -51,3 +55,17 @@ class LazyProxy:
 
     def __repr__(self):
         return repr(self.__dict__["_wrapped"])
+
+
+def __generate_temp_dir__(suffix=None) -> Iterator[Path]:
+    path = None
+    try:
+        path = Path(tempfile.mkdtemp(suffix=suffix))
+        logger.debug('Generating temp path: %s', path)
+        yield path
+    finally:
+        if path and path.exists():
+            shutil.rmtree(path)
+
+
+generate_temp_dir: Callable[..., ContextManager[Path]] = contextmanager(__generate_temp_dir__)

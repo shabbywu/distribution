@@ -28,7 +28,7 @@ class ManifestSchema1(BaseModel):
     spec: https://github.com/distribution/distribution/blob/main/docs/spec/manifest-v2-1.md
     """
 
-    schemaVersion: int
+    schemaVersion: int = 1
     name: str
     tag: str
     architecture: str
@@ -60,6 +60,7 @@ class DockerManifestConfigDescriptor(Descriptor):
     def content_type() -> str:
         return "application/vnd.docker.container.image.v1+json"
 
+    mediaType: str = "application/vnd.docker.container.image.v1+json"
     _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
 
 
@@ -71,6 +72,7 @@ class DockerManifestLayerDescriptor(Descriptor):
             "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
         ]
 
+    mediaType: str = "application/vnd.docker.image.rootfs.diff.tar.gzip"
     _validate_media_type = validator("mediaType", allow_reuse=True)(validate_media_type)
 
 
@@ -78,7 +80,7 @@ class ManifestSchema2(BaseModel):
     """image manifest for the Registry, Schema2.
     spec: https://github.com/distribution/distribution/blob/main/docs/spec/manifest-v2-2.md"""
 
-    schemaVersion: int
+    schemaVersion: int = 2
     mediaType: str = "application/vnd.docker.distribution.manifest.v2+json"
     config: DockerManifestConfigDescriptor
     layers: List[DockerManifestLayerDescriptor]

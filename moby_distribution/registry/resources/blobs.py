@@ -1,4 +1,5 @@
 import hashlib
+import shutil
 from contextlib import contextmanager
 from pathlib import Path
 from typing import BinaryIO, Optional, Tuple, Union
@@ -7,6 +8,7 @@ from urllib.parse import urlparse
 from moby_distribution.registry import exceptions
 from moby_distribution.registry.client import DockerRegistryV2Client, URLBuilder, default_client
 from moby_distribution.registry.resources import RepositoryResource
+from moby_distribution.spec.base import Descriptor
 
 
 class Blob(RepositoryResource):
@@ -33,6 +35,23 @@ class Blob(RepositoryResource):
             self._accessor = Accessor(local_path=self.local_path, fileobj=self.fileobj)
         return self._accessor
 
+    def stat(self, digest: Optional[str] = None) -> Descriptor:
+        """Obtain resource information without receiving all data."""
+        digest = digest or self.digest
+        if digest is None:
+            raise RuntimeError("unknown digest")
+
+        url = URLBuilder.build_blobs_url(self.client.api_base_url, repo=self.repo, digest=digest)
+        resp = self.client.head(url=url)
+        headers = resp.headers
+        return Descriptor(
+            # Content-Type: application/octet-stream
+            mediaType=headers["Content-Type"],
+            size=headers["Content-Length"],
+            digest=headers["Docker-Content-Digest"],
+            urls=[url],
+        )
+
     def download(self, digest: Optional[str] = None):
         """download the blob from registry to `local_path` or `fileobj`"""
         digest = digest or self.digest
@@ -45,23 +64,21 @@ class Blob(RepositoryResource):
             for chunk in resp.iter_content(chunk_size=1024):
                 fh.write(chunk)
 
-    def upload(self) -> bool:
+    def upload(self) -> Descriptor:
         """upload the blob from `local_path` or `fileobj` to the registry by streaming"""
         uuid, location = self._initiate_blob_upload()
         blob = BlobWriter(uuid, location, client=self.client)
-        sha256 = hashlib.sha256()
         with self.accessor.open(mode="rb") as fh:
-            chunk = fh.read(1024 * 1024 * 4)
-            sha256.update(chunk)
-            blob.write(chunk)
+            signer = HashSigner(fh=blob)  # type: ignore
+            shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024 * 1024 * 4)
 
-        digest = f"sha256:{sha256.hexdigest()}"
-        if blob.commit(digest):
-            self.digest = digest
-            return True
-        return False
+        digest = signer.digest()
+        blob.commit(digest)
 
-    def upload_at_one_time(self):
+        self.digest = digest
+        return self.stat()
+
+    def upload_at_one_time(self) -> Descriptor:
         """upload the monolithic blob from `local_path` or `fileobj` to the registry at one time."""
         data = self.accessor.read_bytes()
         digest = f"sha256:{hashlib.sha256(data).hexdigest()}"
@@ -75,7 +92,7 @@ class Blob(RepositoryResource):
         if resp.status_code != 201:
             raise exceptions.RequestErrorWithResponse("failed to upload", status_code=resp.status_code, response=resp)
         self.digest = digest
-        return True
+        return self.stat()
 
     def _initiate_blob_upload(self) -> Tuple[str, str]:
         """Initiate a resumable blob upload.
@@ -104,7 +121,7 @@ class Blob(RepositoryResource):
             location = f"{self.client.api_base_url}/{location.lstrip('/')}"
         return uuid, location
 
-    def mount_from(self, from_repo: str) -> bool:
+    def mount_from(self, from_repo: str) -> Descriptor:
         """Mount the blob from the given repo, if the client has read access to."""
         if self.digest is None:
             raise RuntimeError("unknown digest")
@@ -117,7 +134,7 @@ class Blob(RepositoryResource):
             raise exceptions.RequestErrorWithResponse(
                 f"failed to mount blob({self.digest}) from `{from_repo}`", status_code=resp.status_code, response=resp
             )
-        return True
+        return self.stat()
 
     def delete(self, digest: Optional[str] = None):
         """Delete the blob identified by repo and digest"""
@@ -177,6 +194,9 @@ class BlobWriter:
         self._committed = True
         return True
 
+    def tell(self) -> int:
+        return self._offset
+
 
 class Accessor:
     def __init__(self, local_path: Optional[Path] = None, fileobj: Optional[BinaryIO] = None):
@@ -200,3 +220,32 @@ class Accessor:
             self.fileobj.seek(0)
             return self.fileobj.read()
         return self.local_path.read_bytes()
+
+
+class CounterIO:
+    def __init__(self):
+        self.size = 0
+
+    def write(self, chunk: bytes):
+        self.size += len(chunk)
+        return len(chunk)
+
+    def tell(self) -> int:
+        return self.size
+
+
+class HashSigner(BinaryIO):
+    def __init__(self, fh: Union[BinaryIO, CounterIO] = CounterIO(), constructor=hashlib.sha256):
+        self._raw_fh = fh
+        self.signer = constructor()
+
+    def write(self, chunk: bytes):
+        self.signer.update(chunk)
+        return self._raw_fh.write(chunk)
+
+    def tell(self) -> int:
+        return self._raw_fh.tell()
+
+    def digest(self) -> str:
+        """return hexdigest with hash method name"""
+        return f"{self.signer.name}:{self.signer.hexdigest()}"

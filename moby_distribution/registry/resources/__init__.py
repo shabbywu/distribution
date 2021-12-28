@@ -1,5 +1,3 @@
-from typing import Optional
-
 from moby_distribution.registry.client import DockerRegistryV2Client, default_client
 
 
@@ -7,7 +5,7 @@ class RepositoryResource:
     def __init__(
         self,
         repo: str,
-        client: Optional[DockerRegistryV2Client] = default_client,
+        client: DockerRegistryV2Client = default_client,
     ):
         self.repo = repo
         if client is not None:

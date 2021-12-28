@@ -20,7 +20,7 @@ Or install from GitHub for latest version.
 ```
 
 ### Introduction
-The API provides several classes: `ManifestRef`, `Blob`, `Tags`, `DockerRegistryV2Client`, `APIEndpoint`
+The API provides several classes: `ManifestRef`, `Blob`, `Tags`, `DockerRegistryV2Client`, `APIEndpoint`, `ImageRef`
 
 `ManifestRef` has the following methods:
 - `get(media_type)` retrieve image manifest as the provided media_type
@@ -40,6 +40,13 @@ The API provides several classes: `ManifestRef`, `Blob`, `Tags`, `DockerRegistry
 - `get(tag)` retrieve the manifest descriptor identified by the tag.
 - `untag(tag)` work like `ManifestRef.delete()`
 
+`ImageRef` has the following methods:
+- `from_image(from_repo, from_reference, to_repo, to_reference)` init a `ImageRef` from `{from_repo}:{from_reference}` but will name `{to_repo, to_reference}`.
+- `save(dest)` save the image to dest, as Docker Image Specification v1.2 Format.
+- `push(media_type="application/vnd.docker.distribution.manifest.v2+json")` push the image to the registry.
+- `push_v2()` push the image to the registry, with Manifest Schema2.
+- `add_layer(layer_ref)` add a layer to this image, this is a way to build a new Image.
+
 `DockerRegistryV2Client` has the following methods:
 - `from_api_endpoint(api_endpoint, username, password)` initial a client to the `api_endpoint` with `username` and `password`
 
@@ -53,15 +60,15 @@ APIEndpoint(url="https://registry.hub.docker.com")
 APIEndpoint(url="registry.hub.docker.com")
 ```
 
-if the scheme is missing, we will detect whether the server provides ssl and verify the certificate.   
+if the scheme is missing, we will detect whether the server provides ssl and verify the certificate.
 
 If no ssl: use http(80).
-If have ssl, but certificate is invalid:   
+If have ssl, but certificate is invalid:
   - try to ping the registry with https(443), if success, use it
   - otherwise, downgrade to http(80)
 If have ssl and valid certificate: use https(443)
 
-We provide an anonymous client connected to Docker Official Registry as default, you can find it at `moby_distribution.default_client`, 
+We provide an anonymous client connected to Docker Official Registry as default, you can find it at `moby_distribution.default_client`,
 and you can override the default client by `set_default_client(client)`.
 
 ### Example
@@ -150,7 +157,20 @@ Read the process description of [the official document](https://github.com/distr
 
 Done, Congratulations!
 
+**Here is another way, use the newly implemented ImageRef!**
+```python
+from moby_distribution import ImageRef, DockerRegistryV2Client, OFFICIAL_ENDPOINT
+
+# To upload files to Docker Registry, you must login to your account
+client = DockerRegistryV2Client.from_api_endpoint(OFFICIAL_ENDPOINT, username="your-username", password="your-password")
+
+image_ref = ImageRef.from_image(from_repo="your-repo", from_reference="your-reference", to_reference="the-new-reference")
+image_ref.push()
+```
+The above statement achieves the equivalent function of `docker tag {your-repo}:{your-reference} {your-repo}:{the-new-reference} && docker push {your-repo}:{the-new-reference}`
+
 ### RoadMap
 - [x] implement the Distribution Client API for moby(docker)
-- [ ] Command line tool for operating Image(Tools that implement Example 6)
+- [x] implement the Docker Image Operator(Operator that implement Example 6)
+- [ ] Command line tool for operating Image
 - [ ] implement the Distribution Client API for OCI
