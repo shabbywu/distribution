@@ -29,7 +29,7 @@ class ImageManifest(BaseModel):
 
 
 class LayerRef(BaseModel):
-    repo: str
+    repo: str = ""
     digest: str = ""
     size: int = -1
     exists: bool = True
@@ -147,11 +147,11 @@ class ImageRef(RepositoryResource):
         if not layer.exists and not layer.local_path:
             raise ValueError("Unknown layer")
 
-        uncompressed_tarball_signer = HashSigner(fh=io.BytesIO())  # type: ignore
+        uncompressed_tarball_signer = HashSigner(fh=io.BytesIO())
         # Add local layer
         if layer.local_path:
             # Step 1: calculate the sha256 sum for the gzipped_tarball
-            gzipped_tarball_signer = HashSigner()  # type: ignore
+            gzipped_tarball_signer = HashSigner()
             with layer.local_path.open(mode="rb") as gzipped:
                 shutil.copyfileobj(gzipped, gzipped_tarball_signer)
                 size = gzipped_tarball_signer.tell()
@@ -168,13 +168,15 @@ class ImageRef(RepositoryResource):
                 )
 
             layer.digest = gzipped_tarball_signer.digest()
+            layer.repo = self.repo
+            layer.size = size
 
         # Add remote layer if the layer is exists in registry
         else:
             with generate_temp_dir() as temp_dir:
                 # Step 1: calculate the sha256 sum for the gzipped_tarball
                 with (temp_dir / "blob").open(mode="wb") as fh:
-                    gzipped_tarball_signer = HashSigner(fh=fh)  # type: ignore
+                    gzipped_tarball_signer = HashSigner(fh=fh)
                     Blob(
                         repo=layer.repo, digest=layer.digest, client=self.client, fileobj=gzipped_tarball_signer
                     ).download()
@@ -225,7 +227,7 @@ class ImageRef(RepositoryResource):
         Blob(repo=layer.repo, digest=layer.digest, local_path=temp_gzip_path, client=self.client).download()
 
         with gzip.open(filename=temp_gzip_path) as gzipped, temp_tarball_path.open(mode="wb") as fh:
-            signer = HashSigner(fh)  # type: ignore
+            signer = HashSigner(fh)
             shutil.copyfileobj(gzipped, signer)
 
         tarball_path = f"{signer.digest()}/layer.tar"

@@ -17,7 +17,7 @@ class Blob(RepositoryResource):
         repo: str,
         digest: Optional[str] = None,
         local_path: Optional[Union[Path, str]] = None,
-        fileobj: Optional[BinaryIO] = None,
+        fileobj: Optional[Union[BinaryIO, 'HashSigner']] = None,
         client: DockerRegistryV2Client = default_client,
     ):
         super().__init__(repo, client)
@@ -69,7 +69,7 @@ class Blob(RepositoryResource):
         uuid, location = self._initiate_blob_upload()
         blob = BlobWriter(uuid, location, client=self.client)
         with self.accessor.open(mode="rb") as fh:
-            signer = HashSigner(fh=blob)  # type: ignore
+            signer = HashSigner(fh=blob)
             shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024 * 1024 * 4)
 
         digest = signer.digest()
@@ -234,8 +234,8 @@ class CounterIO:
         return self.size
 
 
-class HashSigner(BinaryIO):
-    def __init__(self, fh: Union[BinaryIO, CounterIO] = CounterIO(), constructor=hashlib.sha256):
+class HashSigner:
+    def __init__(self, fh: Union[BinaryIO, CounterIO, BlobWriter] = CounterIO(), constructor=hashlib.sha256):
         self._raw_fh = fh
         self.signer = constructor()
 
