@@ -15,7 +15,7 @@ from moby_distribution.registry.resources import RepositoryResource
 from moby_distribution.registry.resources.blobs import Blob, HashSignWrapper
 from moby_distribution.registry.resources.manifests import ManifestRef
 from moby_distribution.registry.utils import generate_temp_dir
-from moby_distribution.spec.image_json import ImageJSON
+from moby_distribution.spec.image_json import History, ImageJSON
 from moby_distribution.spec.manifest import (
     DockerManifestConfigDescriptor,
     DockerManifestLayerDescriptor,
@@ -57,6 +57,7 @@ class ImageRef(RepositoryResource):
         self._dirty = False
         # diff id is the digest of uncompressed tarball
         self._append_diff_ids: List[str] = []
+        self._append_historys: List[History] = []
 
     @classmethod
     def from_image(
@@ -137,10 +138,13 @@ class ImageRef(RepositoryResource):
 
         # Step 3.: upload the manifest
         manifest = ManifestSchema2(config=config_descriptor, layers=layer_descriptors)
-        ManifestRef(repo=self.repo, reference=self.reference, client=self.client).put(manifest)
+        ref = ManifestRef(repo=self.repo, reference=self.reference, client=self.client)
+        ref.put(manifest)
+        if self._dirty:
+            return ref.get(media_type=ManifestSchema2.content_type())
         return manifest
 
-    def add_layer(self, layer: LayerRef) -> DockerManifestLayerDescriptor:
+    def add_layer(self, layer: LayerRef, history: Optional[History] = None) -> DockerManifestLayerDescriptor:
         """Add a layer to this image.
 
         Step:
@@ -198,7 +202,9 @@ class ImageRef(RepositoryResource):
 
         self._dirty = True
         self._append_diff_ids.append(uncompressed_tarball_signer.digest())
+        self._append_historys.append(history or History(comment="add by moby-distribution"))
         self.layers.append(layer)
+
         return DockerManifestLayerDescriptor(
             digest=gzipped_signer.digest(),
             size=size,
@@ -210,6 +216,7 @@ class ImageRef(RepositoryResource):
         if not self._dirty:
             return base
         base.rootfs.diff_ids.extend(self._append_diff_ids)
+        base.history.extend(self._append_historys)
         return base
 
     @property
@@ -253,8 +260,9 @@ class ImageRef(RepositoryResource):
             descriptor = blob.upload()
         else:
             descriptor = Blob(repo=self.repo, client=self.client).stat(layer.digest)
+
         return DockerManifestLayerDescriptor(
-            size=descriptor.size,
+            size=layer.size,
             digest=descriptor.digest,
             urls=descriptor.urls,
         )
