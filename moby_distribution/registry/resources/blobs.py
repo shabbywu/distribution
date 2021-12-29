@@ -244,8 +244,8 @@ class HashSignWrapper:
     >>> shutil.copyfileobj(src, dest)
     """
 
-    def __init__(self, fh: Union[BinaryIO, CounterIO, BlobWriter] = CounterIO(), constructor=hashlib.sha256):
-        self._raw_fh = fh
+    def __init__(self, fh: Optional[Union[BinaryIO, CounterIO, BlobWriter]] = None, constructor=hashlib.sha256):
+        self._raw_fh = fh or CounterIO()
         self.signer = constructor()
 
     def write(self, chunk: bytes):
