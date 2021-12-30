@@ -46,7 +46,11 @@ class APIEndpoint(BaseModel):
 
         parts = match.groupdict()
         hostname = parts["domain"] or parts["ipv4"] or parts["ipv6"]
-        port = int(parts["port"] or 443)
+
+        port = parts["port"]
+        if not port:
+            port = "443" if self.is_secure_repository()[0] else "80"
+
         path = parts["path"] or ""
         return f"{hostname}:{port}{path}"
 

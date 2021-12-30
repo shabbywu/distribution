@@ -5,6 +5,7 @@ import random
 import ssl
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from unittest import mock
 
 import pytest
 from cryptography import x509
@@ -115,3 +116,19 @@ def server(request):
 )
 def test_is_secure_repository(server, expected):
     assert APIEndpoint(url=f"{server[0]}:{server[1]}").is_secure_repository() == expected
+
+
+@pytest.mark.parametrize(
+    "url, support_https, expected",
+    [
+        ("127.0.0.1", False, "127.0.0.1:80"),
+        ("127.0.0.1", True, "127.0.0.1:443"),
+        ("127.0.0.1:5000", False, "127.0.0.1:5000"),
+        ("127.0.0.1:5000", True, "127.0.0.1:5000"),
+    ],
+)
+def test_api_base_url(url, support_https, expected):
+    with mock.patch(
+        "moby_distribution.spec.endpoint.APIEndpoint.is_secure_repository", return_value=[support_https, False]
+    ):
+        assert APIEndpoint(url=url).api_base_url == expected
