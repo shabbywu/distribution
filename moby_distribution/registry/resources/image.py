@@ -274,7 +274,7 @@ class ImageRef(RepositoryResource):
         """
         descriptor = Blob(repo=self.repo, fileobj=io.BytesIO(image_json_str.encode()), client=self.client).upload()
         return DockerManifestConfigDescriptor(
-            size=descriptor.size,
+            size=len(image_json_str),
             digest=descriptor.digest,
             urls=descriptor.urls,
         )
