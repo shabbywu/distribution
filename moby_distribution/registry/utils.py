@@ -4,7 +4,8 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Iterator, Union
+from typing import Any, Callable, ContextManager, Iterator, NamedTuple, Optional, Union
+from urllib.parse import urlparse
 
 import libtrust
 from libtrust.keys import ec_key, rs_key
@@ -69,3 +70,53 @@ def __generate_temp_dir__(suffix=None) -> Iterator[Path]:
 
 
 generate_temp_dir: Callable[..., ContextManager[Path]] = contextmanager(__generate_temp_dir__)
+
+
+class NamedImage(NamedTuple):
+    domain: str
+    name: str
+    tag: Optional[str] = None
+
+
+def parse_image(image: str, default_registry: Optional[str] = None) -> NamedImage:
+    """parse the `repository:tag` as NamedImage
+
+    Usage:
+    >>> parse_image("python", default_registry="docker.io")
+    NamedImage(domain='docker.io', name='library/python', tag=None)
+
+    >>> parse_image("python:latest", default_registry="docker.io")
+    NamedImage(domain='docker.io', name='library/python', tag="latest")
+
+    >>> parse_image("localhost:5000/python", default_registry="docker.io")
+    NamedImage(domain='localhost:5000', name='python', tag=None)
+
+    >>> parse_image("localhost:5000/python:latest", default_registry="docker.io")
+    NamedImage(domain='localhost:5000', name='python', tag='latest')
+
+    >>> parse_image("docker.io:5000/python:latest", default_registry="not-docker.io")
+    NamedImage(domain='docker.io:5000', name='python', tag='latest')
+    """
+    from moby_distribution.registry.client import default_client
+
+    i = image.find("/")
+    default_registry = default_registry or urlparse(default_client.api_base_url).netloc
+    tag: Optional[str] = None
+
+    # case for image in default registry
+    if i == -1 or (("." not in image[:i] and ":" not in image[:i]) and image[:i] != "localhost"):
+        domain = default_registry
+        remainder = image
+    else:
+        domain = image[:i]
+        remainder = image[i + 1 :]
+
+    if ":" in remainder:
+        name, tag = remainder.split(":", 1)
+    else:
+        name = remainder
+
+    if domain == default_registry and "/" not in name:
+        name = f"library/{name}"
+
+    return NamedImage(domain=domain, name=name, tag=tag)

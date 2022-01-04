@@ -5,7 +5,11 @@ import pytest
 import requests
 import requests_mock
 
-from moby_distribution.registry.auth import DockerRegistryTokenAuthentication
+from moby_distribution.registry.auth import (
+    DockerRegistryTokenAuthentication,
+    HTTPBasicAuthentication,
+    TokenAuthorizationProvider,
+)
 from moby_distribution.registry.exceptions import AuthFailed
 
 
@@ -62,7 +66,8 @@ class TestDockerRegistryTokenAuthentication:
         mock_adapter.register_uri("GET", "mock://auth.docker.io/token", json=auth_response)
 
         authed = auth.authenticate("username", "password")
-        assert authed.json(exclude_unset=True) == json.dumps(auth_response)
+        assert isinstance(authed, TokenAuthorizationProvider)
+        assert authed.token_response.json(exclude_unset=True) == json.dumps(auth_response)
 
     def test_authenticate_failed(self, mock_adapter):
         www_authenticate = 'Bearer realm="mock://auth.docker.io/token",service="dummy",scope="dummy"'
@@ -71,3 +76,17 @@ class TestDockerRegistryTokenAuthentication:
         mock_adapter.register_uri("GET", "mock://auth.docker.io/token", status_code=400)
         with pytest.raises(AuthFailed):
             auth.authenticate("username", "password")
+
+
+class TestHTTPBasicAuthentication:
+    @pytest.mark.parametrize(
+        "username, password, expected",
+        [
+            ("username", "password", "Basic dXNlcm5hbWU6cGFzc3dvcmQ="),
+            pytest.param("username", None, "", marks=pytest.mark.xfail),
+            pytest.param(None, "password", "", marks=pytest.mark.xfail),
+            pytest.param(None, None, "", marks=pytest.mark.xfail),
+        ],
+    )
+    def test_authenticate(self, username, password, expected):
+        assert HTTPBasicAuthentication("").authenticate(username, password).provide() == expected

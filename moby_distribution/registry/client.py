@@ -1,12 +1,15 @@
 from functools import partial
-from typing import Optional, cast
+from typing import Optional, Type, cast
 
 import requests
 
 from moby_distribution.registry import exceptions
-from moby_distribution.registry.auth import DockerRegistryTokenAuthentication
+from moby_distribution.registry.auth import (
+    AuthorizationProvider,
+    BaseAuthentication,
+    DockerRegistryTokenAuthentication,
+)
 from moby_distribution.registry.utils import LazyProxy
-from moby_distribution.spec.auth import TokenResponse
 from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT, APIEndpoint
 
 
@@ -23,6 +26,7 @@ class DockerRegistryV2Client:
         api_endpoint: APIEndpoint = OFFICIAL_ENDPOINT,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        authenticator_class: Type[BaseAuthentication] = DockerRegistryTokenAuthentication,
     ):
         https_scheme = "https://"
         http_scheme = "http://"
@@ -33,6 +37,7 @@ class DockerRegistryV2Client:
                 username=username,
                 password=password,
                 verify_certificate=certificate_valid,
+                authenticator_class=authenticator_class,
             )
             if certificate_valid or client.ping():
                 return client
@@ -41,6 +46,7 @@ class DockerRegistryV2Client:
             username=username,
             password=password,
             verify_certificate=False,
+            authenticator_class=authenticator_class,
         )
 
     def __init__(
@@ -49,6 +55,7 @@ class DockerRegistryV2Client:
         username: Optional[str] = None,
         password: Optional[str] = None,
         verify_certificate: bool = True,
+        authenticator_class: Type[BaseAuthentication] = DockerRegistryTokenAuthentication,
     ):
         if api_base_url.endswith("/"):
             api_base_url = api_base_url.rstrip("/")
@@ -58,7 +65,8 @@ class DockerRegistryV2Client:
 
         self.username = username
         self.password = password
-        self._authed: Optional[TokenResponse] = None
+        self.authenticator_class = authenticator_class
+        self._authed: Optional[AuthorizationProvider] = None
 
     def ping(self) -> bool:
         """API Version Check."""
@@ -73,11 +81,7 @@ class DockerRegistryV2Client:
     def authorization(self) -> str:
         if self._authed is None:
             return ""
-        if self._authed.token:
-            return f"Bearer {self._authed.token}"
-        elif self._authed.access_token:
-            return f"Bearer {self._authed.access_token}"
-        raise RuntimeError("token not found.")
+        return self._authed.provide()
 
     @property
     def get(self):
@@ -116,7 +120,7 @@ class DockerRegistryV2Client:
         if resp.status_code == 401:
             if auto_auth:
                 www_authenticate = resp.headers["www-authenticate"]
-                auth = DockerRegistryTokenAuthentication(www_authenticate)
+                auth = self.authenticator_class(www_authenticate)
                 self._authed = auth.authenticate(username=self.username, password=self.password)
                 raise exceptions.RetryAgain
             raise exceptions.PermissionDeny

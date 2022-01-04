@@ -27,6 +27,21 @@ class TestImageRef:
 
         assert manifest_filepath.read_bytes() == config
 
+    def test_from_tarball(self, tmp_path, repo, reference, temp_repo, temp_reference, registry_client):
+        image_filepath = tmp_path / "image.tar"
+        image1 = ImageRef.from_image(from_repo=repo, from_reference=reference, client=registry_client)
+        image1.save(image_filepath)
+
+        image2 = ImageRef.from_tarball(
+            workplace=tmp_path,
+            src=image_filepath,
+            to_repo=temp_repo,
+            to_reference=temp_reference,
+            client=registry_client,
+        )
+
+        assert image1.image_json_str == image2.image_json_str
+
     def test_push_v2(self, repo, reference, temp_repo, temp_reference, registry_client):
         ref = ImageRef.from_image(
             from_repo=repo,

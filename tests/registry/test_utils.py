@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 from pydantic import BaseModel, validator
 
-from moby_distribution.registry.utils import LazyProxy, get_private_key, validate_media_type
+from moby_distribution.registry.utils import LazyProxy, NamedImage, get_private_key, parse_image, validate_media_type
 
 
 @pytest.fixture(autouse=True)
@@ -114,3 +114,31 @@ class TestValidateMediaType:
 
         assert T(mediaType="T").mediaType == "T"
         assert T(mediaType="t").mediaType == "t"
+
+
+@pytest.mark.parametrize(
+    "image, default_registry, expected",
+    [
+        ("python", "docker.io", NamedImage(domain='docker.io', name='library/python', tag=None)),
+        ("python:latest", "docker.io", NamedImage(domain='docker.io', name='library/python', tag="latest")),
+        ("docker.io/python:latest", "docker.io", NamedImage(domain='docker.io', name='library/python', tag='latest')),
+        ("localhost:5000/python", "docker.io", NamedImage(domain='localhost:5000', name='python', tag=None)),
+        (
+            "localhost:5000/python:latest",
+            "docker.io",
+            NamedImage(domain='localhost:5000', name='python', tag="latest"),
+        ),
+        (
+            "localhost:5000/python:latest",
+            "docker.io",
+            NamedImage(domain='localhost:5000', name='python', tag="latest"),
+        ),
+        (
+            "docker.io:5000/python:latest",
+            "not-docker.io",
+            NamedImage(domain='docker.io:5000', name='python', tag='latest'),
+        ),
+    ],
+)
+def test_parse_image(image, default_registry, expected):
+    assert parse_image(image, default_registry) == expected

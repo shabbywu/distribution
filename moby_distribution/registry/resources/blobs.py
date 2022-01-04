@@ -2,7 +2,7 @@ import hashlib
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
-from typing import BinaryIO, Optional, Tuple, Union
+from typing import IO, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from moby_distribution.registry import exceptions
@@ -17,7 +17,7 @@ class Blob(RepositoryResource):
         repo: str,
         digest: Optional[str] = None,
         local_path: Optional[Union[Path, str]] = None,
-        fileobj: Optional[Union[BinaryIO, 'HashSignWrapper']] = None,
+        fileobj: Optional[Union[IO, 'HashSignWrapper']] = None,
         client: DockerRegistryV2Client = default_client,
     ):
         super().__init__(repo, client)
@@ -199,7 +199,7 @@ class BlobWriter:
 
 
 class Accessor:
-    def __init__(self, local_path: Optional[Path] = None, fileobj: Optional[BinaryIO] = None):
+    def __init__(self, local_path: Optional[Path] = None, fileobj: Optional[IO] = None):
         if not local_path and not fileobj:
             raise ValueError("Nothing to operate")
         if local_path and fileobj:
@@ -244,7 +244,7 @@ class HashSignWrapper:
     >>> shutil.copyfileobj(src, dest)
     """
 
-    def __init__(self, fh: Optional[Union[BinaryIO, CounterIO, BlobWriter]] = None, constructor=hashlib.sha256):
+    def __init__(self, fh: Optional[Union[IO, CounterIO, BlobWriter]] = None, constructor=hashlib.sha256):
         self._raw_fh = fh or CounterIO()
         self.signer = constructor()
 

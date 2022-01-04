@@ -14,7 +14,7 @@ from moby_distribution.registry.client import DockerRegistryV2Client, default_cl
 from moby_distribution.registry.resources import RepositoryResource
 from moby_distribution.registry.resources.blobs import Blob, HashSignWrapper
 from moby_distribution.registry.resources.manifests import ManifestRef
-from moby_distribution.registry.utils import generate_temp_dir
+from moby_distribution.registry.utils import generate_temp_dir, parse_image
 from moby_distribution.spec.image_json import History, ImageJSON
 from moby_distribution.spec.manifest import (
     DockerManifestConfigDescriptor,
@@ -68,7 +68,7 @@ class ImageRef(RepositoryResource):
         to_reference: Optional[str] = None,
         client: DockerRegistryV2Client = default_client,
     ):
-        """Initial a `ImageRef` from `{from_repo}:{from_reference}` but will name `{to_repo, to_reference}`
+        """Initial a `ImageRef` from `{from_repo}:{from_reference}` but will named it as `{to_repo, to_reference}`
 
         if no `to_repo` or `to_reference` given, use `from_repo` or `from_reference` as default.
         """
@@ -91,14 +91,71 @@ class ImageRef(RepositoryResource):
             repo=to_repo, reference=to_reference, layers=layers, initial_config=fh.read().decode(), client=client
         )
 
+    @classmethod
+    def from_tarball(
+        cls,
+        workplace: Path,
+        src: Path,
+        to_repo: Optional[str] = None,
+        to_reference: Optional[str] = None,
+        client: DockerRegistryV2Client = default_client,
+    ):
+        """Initial a `ImageRef` from a tarball locate in local disk, but will named it as `{to_repo, to_reference}`
+
+        :param Path workplace: the workplace to extract the tarball and store gzip compressed layers
+        :param Path src: the path of tarball
+        :param str to_repo: the name for the image
+        :param str to_reference: the tag for the image
+
+        if no `to_repo` or `to_reference` given, will use RepoTags in `manifest.json`
+        """
+        with tarfile.open(name=src) as tarball:
+            tarball.extractall(workplace)
+
+            manifest_list = json.loads((workplace / "manifest.json").read_text())
+            if not isinstance(manifest_list, list) or len(manifest_list) == 0:
+                raise ValueError("Invalid manifest.json")
+
+            manifest = ImageManifest(**manifest_list[0])
+            if not manifest.RepoTags and (not to_repo or not to_reference):
+                raise ValueError("Invalid repo or reference")
+
+            named = parse_image(manifest.RepoTags[0])
+            if to_repo is None:
+                to_repo = named.name
+
+            if to_reference is None:
+                to_reference = named.tag or "latest"
+
+            layers = []
+            for layer in manifest.Layers:
+                gzipped_filepath = workplace / (layer + ".gz")
+                with (workplace / layer).open(mode="rb") as fh, gzip.open(gzipped_filepath, mode="wb") as compressed:
+                    gzipped_signer = HashSignWrapper(compressed)
+                    shutil.copyfileobj(fh, gzipped_signer)
+
+                    layers.append(
+                        LayerRef(
+                            repo=to_repo,
+                            digest=gzipped_signer.digest(),
+                            size=gzipped_signer.tell(),
+                            local_path=gzipped_filepath,
+                        )
+                    )
+
+            return cls(
+                repo=to_repo,
+                reference=to_reference,
+                layers=layers,
+                initial_config=(workplace / manifest.config).read_text(),
+                client=client,
+            )
+
     def save(self, dest: str):
         """save the image to dest, as Docker Image Specification v1.2 Format
 
         spec: https://github.com/moby/moby/blob/master/image/spec/v1.2.md
         """
-        if self._dirty:
-            raise Exception("Can't download temporary image")
-
         manifest = ImageManifest(RepoTags=[f"{self.repo}:{self.reference}"])
         with generate_temp_dir() as workplace:
             # Step 1. save image json
@@ -229,20 +286,26 @@ class ImageRef(RepositoryResource):
     def _save_layer(self, workplace: Path, layer: LayerRef) -> str:
         """Download the gzipped layer, and uncompress as the raw tarball.
 
+        if layer is exists in local disk(the local_path is not None), will skip download.
+
         :raise RequestErrorWithResponse: raise if an error occur.
         """
-        temp_gzip_path = workplace / "layers.tar.gz"
+        gzip_path = layer.local_path or (workplace / "layers.tar.gz")
         temp_tarball_path = workplace / "layer.tar"
-        Blob(repo=layer.repo, digest=layer.digest, local_path=temp_gzip_path, client=self.client).download()
 
-        with gzip.open(filename=temp_gzip_path) as gzipped, temp_tarball_path.open(mode="wb") as fh:
+        if layer.local_path is None:
+            Blob(repo=layer.repo, digest=layer.digest, local_path=gzip_path, client=self.client).download()
+
+        with gzip.open(filename=gzip_path) as uncompressed, temp_tarball_path.open(mode="wb") as fh:
             signer = HashSignWrapper(fh)
-            shutil.copyfileobj(gzipped, signer)
+            shutil.copyfileobj(uncompressed, signer)
 
         tarball_path = f"{signer.digest()}/layer.tar"
         (workplace / tarball_path).parent.mkdir(exist_ok=True, parents=True)
 
-        temp_gzip_path.unlink()
+        if layer.local_path is None:
+            gzip_path.unlink()
+
         shutil.move(str(temp_tarball_path.absolute()), str((workplace / tarball_path).absolute()))
         return tarball_path
 

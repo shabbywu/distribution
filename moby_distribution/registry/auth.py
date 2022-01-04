@@ -12,7 +12,73 @@ from moby_distribution.spec.auth import TokenResponse
 logger = logging.getLogger(__name__)
 
 
-class DockerRegistryTokenAuthentication:
+class AuthorizationProvider:
+    def provide(self) -> str:
+        """Provide the 'Authorization' used in HTTP Headers
+
+        Usage: AuthorizationProvider().provider()
+        """
+        raise NotImplementedError
+
+
+class BaseAuthentication:
+    """Base Authentication Protocol"""
+
+    def __init__(self, www_authenticate: str):
+        self._raw_www_authenticate = www_authenticate
+        self._www_authenticate = None
+
+    @property
+    def www_authenticate(self):
+        if self._www_authenticate is None:
+            self._www_authenticate = parse(self._raw_www_authenticate)
+        return self._www_authenticate
+
+    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+        raise NotImplementedError
+
+
+class BasicAuthAuthorizationProvider(AuthorizationProvider):
+    """BasicAuthAuthorizationProvider provide the `HTTP Basic Authentication`"""
+
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
+    def provide(self) -> str:
+        auth = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
+        return f"Basic {auth}"
+
+
+class TokenAuthorizationProvider(AuthorizationProvider):
+    """TokenAuthorizationProvider provide the `Bearer Token` Authentication"""
+
+    def __init__(self, token_response: TokenResponse, token_type: str = "Bearer"):
+        self.token_response = token_response
+        self.token_type = token_type
+
+    def provide(self) -> str:
+        if self.token_response.token:
+            return f"{self.token_type} {self.token_response.token}"
+        elif self.token_response.access_token:
+            return f"{self.token_type} {self.token_response.access_token}"
+        raise ValueError("Missing Token")
+
+
+class HTTPBasicAuthentication(BaseAuthentication):
+    """`HTTP Basic Authentication` Authenticator"""
+
+    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+        if username is None or password is None:
+            raise AuthFailed(
+                message="请提供用户名和密码",
+                status_code=400,
+                response=None,
+            )
+        return BasicAuthAuthorizationProvider(username, password)
+
+
+class DockerRegistryTokenAuthentication(BaseAuthentication):
     """Docker Registry v2 authentication via central service
 
     spec: https://github.com/distribution/distribution/blob/main/docs/spec/auth/token.md
@@ -21,10 +87,11 @@ class DockerRegistryTokenAuthentication:
     REQUIRE_KEYS = ["realm", "service"]
 
     def __init__(self, www_authenticate: str, offline_token: bool = True):
-        self._www_authenticate = parse(www_authenticate)
-        assert "bearer" in self._www_authenticate
+        super().__init__(www_authenticate)
+        self.offline_token = offline_token
 
-        self.bearer = self._www_authenticate["bearer"]
+        assert "bearer" in self.www_authenticate
+        self.bearer = self.www_authenticate["bearer"]
 
         for key in self.REQUIRE_KEYS:
             assert key in self.bearer
@@ -32,9 +99,8 @@ class DockerRegistryTokenAuthentication:
         self.backend = self.bearer["realm"]
         self.service = self.bearer["service"]
         self.scope = self.bearer.get("scope", None)
-        self.offline_token = offline_token
 
-    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> TokenResponse:
+    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
         """Authenticate to the registry.
         If no username and password provided, will authenticate as the anonymous user.
 
@@ -62,4 +128,4 @@ class DockerRegistryTokenAuthentication:
                 status_code=resp.status_code,
                 response=resp,
             )
-        return TokenResponse(**resp.json())
+        return TokenAuthorizationProvider(TokenResponse(**resp.json()))
