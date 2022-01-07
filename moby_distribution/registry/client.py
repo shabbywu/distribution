@@ -125,6 +125,11 @@ class DockerRegistryV2Client:
                 raise exceptions.RetryAgain
             raise exceptions.PermissionDeny
 
+        if resp.status_code == 403:
+            if auto_auth and self._authed is None and self.ping():
+                raise exceptions.RetryAgain
+            raise exceptions.PermissionDeny
+
         if resp.status_code == 404:
             raise exceptions.ResourceNotFound
 
