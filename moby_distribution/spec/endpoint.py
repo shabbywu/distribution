@@ -36,6 +36,8 @@ class APIEndpoint(BaseModel):
             elif e.reason == "WRONG_VERSION_NUMBER":
                 return False, False
             return False, False
+        except OSError:
+            return False, False
         return True, True
 
     @property
