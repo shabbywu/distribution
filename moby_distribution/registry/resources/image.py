@@ -15,7 +15,7 @@ from moby_distribution.registry.resources import RepositoryResource
 from moby_distribution.registry.resources.blobs import Blob, HashSignWrapper
 from moby_distribution.registry.resources.manifests import ManifestRef
 from moby_distribution.registry.utils import generate_temp_dir, parse_image
-from moby_distribution.spec.image_json import History, ImageJSON
+from moby_distribution.spec.image_json import History, ImageJSON, default_created
 from moby_distribution.spec.manifest import (
     DockerManifestConfigDescriptor,
     DockerManifestLayerDescriptor,
@@ -260,7 +260,13 @@ class ImageRef(RepositoryResource):
         self._dirty = True
         self._append_diff_ids.append(uncompressed_tarball_signer.digest())
         self._append_historys.append(
-            history or History(comment="add by moby-distribution", created_by="add by moby-distribution")
+            history
+            or History(
+                comment="add by moby-distribution",
+                created_by="add by moby-distribution",
+                created=default_created(),
+                empty_layer=False,
+            )
         )
         self.layers.append(layer)
 
