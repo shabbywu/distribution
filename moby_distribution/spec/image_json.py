@@ -5,6 +5,11 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+def default_created():
+    dt = datetime.datetime.utcnow()
+    return dt.replace(microsecond=0, tzinfo=datetime.timezone.utc)
+
+
 class HealthConfig(BaseModel):
     Test: List[str] = Field(
         ...,
@@ -68,7 +73,7 @@ class RootFS(BaseModel):
 
 
 class History(BaseModel):
-    created: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+    created: Optional[datetime.datetime] = Field(default_factory=default_created)
     author: Optional[str]
     created_by: Optional[str]
     comment: Optional[str]
