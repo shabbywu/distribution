@@ -259,7 +259,9 @@ class ImageRef(RepositoryResource):
 
         self._dirty = True
         self._append_diff_ids.append(uncompressed_tarball_signer.digest())
-        self._append_historys.append(history or History(comment="add by moby-distribution"))
+        self._append_historys.append(
+            history or History(comment="add by moby-distribution", created_by="add by moby-distribution")
+        )
         self.layers.append(layer)
 
         return DockerManifestLayerDescriptor(

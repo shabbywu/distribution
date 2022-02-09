@@ -68,7 +68,7 @@ class RootFS(BaseModel):
 
 
 class History(BaseModel):
-    created: Optional[datetime.datetime]
+    created: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     author: Optional[str]
     created_by: Optional[str]
     comment: Optional[str]
