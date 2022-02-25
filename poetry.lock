@@ -92,6 +92,17 @@ ssh = ["bcrypt (>=3.1.5)"]
 test = ["pytest (>=6.2.0)", "pytest-cov", "pytest-subtests", "pytest-xdist", "pretend", "iso8601", "pytz", "hypothesis (>=1.11.4,!=3.79.2)"]
 
 [[package]]
+name = "curlify"
+version = "2.2.1"
+description = "Library to convert python requests object to curl command."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+requests = "*"
+
+[[package]]
 name = "dataclasses"
 version = "0.8"
 description = "A backport of the dataclasses module for Python 3.6"
@@ -168,7 +179,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "py-libtrust"
-version = "1.0.3"
+version = "1.0.4"
 description = "Yet another docker/libtrust implement by python."
 category = "main"
 optional = false
@@ -176,7 +187,7 @@ python-versions = ">=3.6"
 
 [package.dependencies]
 cryptography = ">=3.0.0"
-typing-extensions = ">=4.0.1,<5.0.0"
+typing-extensions = ">=3.6.5"
 
 [[package]]
 name = "pycparser"
@@ -350,8 +361,8 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 
 [metadata]
 lock-version = "1.1"
-python-versions = ">=3.6.1"
-content-hash = "3de67d449ede951d06a0f19577b09fe4083063878c74bd3e8a6f021b38c11e5b"
+python-versions = ">= 3.6.1"
+content-hash = "d4249de9d8ac80d3b3df9e272c5bfbdd74bd7c3fd2f9d21aed7928b0a187ef27"
 
 [metadata.files]
 atomicwrites = [
@@ -498,6 +509,9 @@ cryptography = [
     {file = "cryptography-36.0.0-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:d73e3a96c38173e0aa5646c31bf8473bc3564837977dd480f5cbeacf1d7ef3a3"},
     {file = "cryptography-36.0.0.tar.gz", hash = "sha256:52f769ecb4ef39865719aedc67b4b7eae167bafa48dbc2a26dd36fa56460507f"},
 ]
+curlify = [
+    {file = "curlify-2.2.1.tar.gz", hash = "sha256:0d3f02e7235faf952de8ef45ef469845196d30632d5838bcd5aee217726ddd6d"},
+]
 dataclasses = [
     {file = "dataclasses-0.8-py3-none-any.whl", hash = "sha256:0201d89fa866f68c8ebd9d08ee6ff50c0b255f8ec63a71c16fda7af82bb887bf"},
     {file = "dataclasses-0.8.tar.gz", hash = "sha256:8479067f342acf957dc82ec415d355ab5edb7e7646b90dc6e2fd1d96ad084c97"},
@@ -527,8 +541,8 @@ py = [
     {file = "py-1.11.0.tar.gz", hash = "sha256:51c75c4126074b472f746a24399ad32f6053d1b34b68d2fa41e558e6f4a98719"},
 ]
 py-libtrust = [
-    {file = "py-libtrust-1.0.3.tar.gz", hash = "sha256:492ea15eec4635eb15a18b46b1c616cb90333f3fbfbbafa2e4894c790ed5b1dc"},
-    {file = "py_libtrust-1.0.3-py3-none-any.whl", hash = "sha256:c1d7f33323760f782c25f614fc14a952700f6c124f9686a40030e7cd1660315d"},
+    {file = "py-libtrust-1.0.4.tar.gz", hash = "sha256:2f887575db531bcf7632a35f54ddc74360ae27472afbff9690b7634f0855e95f"},
+    {file = "py_libtrust-1.0.4-py3-none-any.whl", hash = "sha256:9247508d9ebe21a8e533ee4bec8e6ba451796cff00d95e5e4503203207a8f192"},
 ]
 pycparser = [
     {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},

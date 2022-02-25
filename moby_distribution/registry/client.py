@@ -1,6 +1,8 @@
+import logging
 from functools import partial
 from typing import Optional, Type, cast
 
+import curlify
 import requests
 
 from moby_distribution.registry import exceptions
@@ -11,6 +13,8 @@ from moby_distribution.registry.auth import (
 )
 from moby_distribution.registry.utils import LazyProxy
 from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT, APIEndpoint
+
+logger = logging.getLogger(__name__)
 
 
 class DockerRegistryV2Client:
@@ -74,6 +78,7 @@ class DockerRegistryV2Client:
         try:
             self._request(self.session.get, url=url)
         except exceptions.RequestError:
+            logging.debug("Can't not connect to server<%s>", url)
             return False
         return True
 
@@ -117,23 +122,35 @@ class DockerRegistryV2Client:
         return resp
 
     def _validate_response(self, resp: requests.Response, auto_auth: bool = True) -> requests.Response:
+        url = resp.request.url
+        try:
+            curl = curlify.to_curl(resp.request)
+        except Exception:
+            curl = "<unknown>"
+
         if resp.status_code == 401:
             if auto_auth:
                 www_authenticate = resp.headers["www-authenticate"]
                 auth = self.authenticator_class(www_authenticate)
                 self._authed = auth.authenticate(username=self.username, password=self.password)
                 raise exceptions.RetryAgain
+
+            logging.debug("Requesting %s, but PermissionDeny, Equivalent curl command: %s", url, curl)
             raise exceptions.PermissionDeny
 
         if resp.status_code == 403:
             if auto_auth and self._authed is None and self.ping():
                 raise exceptions.RetryAgain
+
+            logging.debug("Requesting %s, but PermissionDeny, Equivalent curl command: %s", url, curl)
             raise exceptions.PermissionDeny
 
         if resp.status_code == 404:
+            logging.info("Requesting %s, but ResourceNotFound, Equivalent curl command: %s", url, curl)
             raise exceptions.ResourceNotFound
 
         if not resp.ok:
+            logging.warning("Requesting %s, but Response Not OK, Equivalent curl command: %s", url, curl)
             raise exceptions.RequestErrorWithResponse(message=resp.text, status_code=resp.status_code, response=resp)
         return resp
 
