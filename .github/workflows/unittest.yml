@@ -1,0 +1,30 @@
+name: unittest
+
+on:
+  release:
+    types: [prereleased]
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up Poetry
+      uses: abatilo/actions-poetry@v2.1.0
+      with:
+          poetry-version: '1.1.13'
+    - name: Test
+      run: |
+        poetry install
+        make setup-integration
+        export UNITTEST_REGISTRY_HOST=http://localhost:5000
+        poetry run pytest --cov=moby_distribution
