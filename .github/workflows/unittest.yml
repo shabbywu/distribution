@@ -2,7 +2,7 @@ name: unittest
 
 on:
   release:
-    types: [prereleased]
+    types: [published]
   workflow_dispatch:
 
 jobs:
