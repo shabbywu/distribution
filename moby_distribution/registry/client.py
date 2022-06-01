@@ -6,11 +6,7 @@ import curlify
 import requests
 
 from moby_distribution.registry import exceptions
-from moby_distribution.registry.auth import (
-    AuthorizationProvider,
-    BaseAuthentication,
-    DockerRegistryTokenAuthentication,
-)
+from moby_distribution.registry.auth import AuthorizationProvider, BaseAuthentication, UniversalAuthentication
 from moby_distribution.registry.utils import LazyProxy
 from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT, APIEndpoint
 
@@ -30,7 +26,7 @@ class DockerRegistryV2Client:
         api_endpoint: APIEndpoint = OFFICIAL_ENDPOINT,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        authenticator_class: Type[BaseAuthentication] = DockerRegistryTokenAuthentication,
+        authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
     ):
         https_scheme = "https://"
         http_scheme = "http://"
@@ -59,7 +55,7 @@ class DockerRegistryV2Client:
         username: Optional[str] = None,
         password: Optional[str] = None,
         verify_certificate: bool = True,
-        authenticator_class: Type[BaseAuthentication] = DockerRegistryTokenAuthentication,
+        authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
     ):
         if api_base_url.endswith("/"):
             api_base_url = api_base_url.rstrip("/")

@@ -48,7 +48,7 @@ class Blob(RepositoryResource):
             # Content-Type: application/octet-stream
             mediaType=headers["Content-Type"],
             # The Content-Length in headers is the `Descriptor Message` size, but not the `Blob` itself.
-            size=headers["Content-Length"],
+            size=headers.get("Content-Length", 0),
             digest=headers.get("Docker-Content-Digest", digest),
             urls=[headers.get("Location", url)],
         )
@@ -71,7 +71,7 @@ class Blob(RepositoryResource):
         blob = BlobWriter(uuid, location, client=self.client)
         with self.accessor.open(mode="rb") as fh:
             signer = HashSignWrapper(fh=blob)
-            shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024 * 1024 * 64)
+            shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024)
 
         digest = signer.digest()
         blob.commit(digest)
@@ -177,8 +177,21 @@ class BlobWriter:
         start, end = int(start_s), int(end_s)
         size = end - start + 1 - self._offset
 
-        self.uuid = resp.headers["docker-upload-uuid"]
-        self.location = resp.headers["location"]
+        uuid = resp.headers.get("docker-upload-uuid")
+        location = resp.headers["location"]
+
+        if uuid is None:
+            uuid = location.split("/")[-1]
+
+        if uuid == "":
+            raise exceptions.RequestErrorWithResponse(
+                "cannot retrieve docker upload UUID",
+                status_code=resp.status_code,
+                response=resp,
+            )
+
+        self.uuid = uuid
+        self.location = location
         self._offset += size
         return size
 

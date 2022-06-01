@@ -37,6 +37,10 @@ class BaseAuthentication:
     def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
         raise NotImplementedError
 
+    @property
+    def raw_www_authenticate(self) -> str:
+        return self._raw_www_authenticate
+
 
 class BasicAuthAuthorizationProvider(AuthorizationProvider):
     """BasicAuthAuthorizationProvider provide the `HTTP Basic Authentication`"""
@@ -85,6 +89,9 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
     """
 
     REQUIRE_KEYS = ["realm", "service"]
+    backend: str
+    service: str
+    scope: str
 
     def __init__(self, www_authenticate: str, offline_token: bool = True):
         super().__init__(www_authenticate)
@@ -129,3 +136,14 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
                 response=resp,
             )
         return TokenAuthorizationProvider(TokenResponse(**resp.json()))
+
+
+class UniversalAuthentication(BaseAuthentication):
+    """An Auto auth backend, which will auto auth by `scheme` provided by www_authenticate"""
+
+    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+        if "basic" in self.www_authenticate:
+            return HTTPBasicAuthentication(self.raw_www_authenticate).authenticate(username, password)
+        elif "bearer" in self.www_authenticate:
+            return DockerRegistryTokenAuthentication(self.raw_www_authenticate).authenticate(username, password)
+        raise NotImplementedError("未支持的认证方式")

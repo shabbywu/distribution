@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "moby-distribution"
-version = "0.5.0"
+version = "0.5.1-dev"
 description = "Yet another moby(docker) distribution implement by python."
 authors = ["shabbywu <shabbywu@qq.com>"]
 license = "Apache-2.0"
