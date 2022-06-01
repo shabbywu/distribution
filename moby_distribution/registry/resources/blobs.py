@@ -71,7 +71,7 @@ class Blob(RepositoryResource):
         blob = BlobWriter(uuid, location, client=self.client)
         with self.accessor.open(mode="rb") as fh:
             signer = HashSignWrapper(fh=blob)
-            shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024 * 1024)
+            shutil.copyfileobj(fsrc=fh, fdst=signer, length=1024 * 1024 * 64)
 
         digest = signer.digest()
         blob.commit(digest)
