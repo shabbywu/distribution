@@ -46,3 +46,13 @@ def registry_manifest_schema1_metadata():
 @pytest.fixture
 def registry_manifest_schema2_metadata():
     return json.loads((asserts / "registry_manifest_schema2_metadata.json").read_text())
+
+
+@pytest.fixture
+def alpine_tar():
+    return asserts / "alpine.tar"
+
+
+@pytest.fixture
+def alpine_append_layer():
+    return asserts / "append.tar.gz"

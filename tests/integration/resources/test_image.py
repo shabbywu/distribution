@@ -3,6 +3,7 @@ import hashlib
 import json
 import tarfile
 
+import docker
 import pytest
 
 from moby_distribution.registry.exceptions import ResourceNotFound
@@ -102,3 +103,34 @@ class TestImageRef:
         Blob(repo=repo, digest=manifest.layers[-1].digest, client=registry_client).delete()
         Blob(repo=repo, digest=manifest.config.digest, client=registry_client).delete()
         ManifestRef(repo=repo, reference=temp_reference, client=registry_client).delete()
+
+
+class TestAlpine:
+    @pytest.fixture()
+    def docker_cli(self):
+        return docker.from_env()
+
+    def test_push(self, registry_client, tmp_path, alpine_tar, docker_cli, registry_netloc):
+        ref = ImageRef.from_tarball(
+            workplace=tmp_path, src=alpine_tar, to_repo="alpine", to_reference="push", client=registry_client
+        )
+        ref.push()
+
+        ImageRef.from_image(from_repo="alpine", from_reference="push", client=registry_client)
+        assert (
+            docker_cli.containers.run(f"{registry_netloc}/alpine:push", command="echo hello", remove=True)
+            == b"hello\n"
+        )
+
+    def test_append(self, registry_client, tmp_path, alpine_tar, alpine_append_layer, docker_cli, registry_netloc):
+        ref = ImageRef.from_tarball(
+            workplace=tmp_path, src=alpine_tar, to_repo="alpine", to_reference="append", client=registry_client
+        )
+        ref.add_layer(LayerRef(local_path=alpine_append_layer))
+        ref.push()
+
+        ImageRef.from_image(from_repo="alpine", from_reference="append", client=registry_client)
+        assert (
+            docker_cli.containers.run(f"{registry_netloc}/alpine:append", command="cat /append/content", remove=True)
+            == b"__flag__\n"
+        )

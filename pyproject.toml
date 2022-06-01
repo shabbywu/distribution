@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "moby-distribution"
-version = "0.5.1-dev1"
+version = "0.5.1"
 description = "Yet another moby(docker) distribution implement by python."
 authors = ["shabbywu <shabbywu@qq.com>"]
 license = "Apache-2.0"
@@ -16,11 +16,13 @@ requests = ">= 2.20.0"
 pydantic = ">= 1.5"
 py-libtrust = ">= 1.0.4"
 curlify = "2.2.1"
+cryptography = "<37.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 pytest-cov = "^3.0.0"
 requests-mock = "^1.9.3"
+docker = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

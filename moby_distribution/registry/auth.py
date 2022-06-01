@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import base64
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import requests
 from www_authenticate import parse
@@ -115,7 +115,7 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
         :param password: User's password.
         :return:
         """
-        params = {
+        params: Dict[str, Any] = {
             "service": self.service,
             "scope": self.scope,
             "client_id": username or "anonymous",

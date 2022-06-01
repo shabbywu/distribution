@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 
 import pytest
 
@@ -9,6 +10,13 @@ from moby_distribution.spec.endpoint import APIEndpoint
 @pytest.fixture
 def registry_endpoint():
     return os.getenv("UNITTEST_REGISTRY_HOST")
+
+
+@pytest.fixture
+def registry_netloc(registry_endpoint):
+    if registry_endpoint is None:
+        pytest.skip("integration not setup.")
+    return urlparse(registry_endpoint).netloc
 
 
 @pytest.fixture(autouse=True)
