@@ -1,4 +1,5 @@
 import hashlib
+import io
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
@@ -129,6 +130,11 @@ class Blob(RepositoryResource):
         url = URLBuilder.build_upload_blobs_url(self.client.api_base_url, self.repo)
         resp = self.client.post(url=url, params={"from": from_repo, "mount": self.digest})
 
+        # If a registry does not support cross-repository mounting or is unable to mount the requested blob,
+        # it SHOULD return a 202. At this time, we should upload the Blob to the registry.
+        if resp.status_code == 202:
+            return self._download_then_upload(from_repo=from_repo)
+
         # If the blob is successfully mounted, the client will receive a `201` Created response
         if resp.status_code != 201:
             raise exceptions.RequestErrorWithResponse(
@@ -149,6 +155,15 @@ class Blob(RepositoryResource):
                 f"failed to delete blob({self.digest}) from `{self.repo}`", status_code=resp.status_code, response=resp
             )
         return True
+
+    def _download_then_upload(self, from_repo: str) -> Descriptor:
+        """Fallback action for mount_from"""
+        if self.fileobj is None and self.local_path is None:
+            self.fileobj = fileobj = io.BytesIO()
+            other = Blob(repo=from_repo, digest=self.digest, client=self.client, fileobj=fileobj)
+            other.download()
+            fileobj.seek(0)
+        return self.upload()
 
 
 class BlobWriter:
