@@ -27,9 +27,9 @@ class APIEndpoint(BaseModel):
 
         try:
             context = ssl.create_default_context()
-            s = context.wrap_socket(socket.socket(), server_hostname=hostname)
-            s.connect((hostname, port))
-            s.getpeercert()
+            connection = socket.create_connection((hostname, port))
+            sock = context.wrap_socket(connection, server_hostname=hostname)
+            sock.getpeercert()
         except ssl.SSLError as e:
             if e.reason == "CERTIFICATE_VERIFY_FAILED":
                 return True, False
