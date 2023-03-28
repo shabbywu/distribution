@@ -10,4 +10,5 @@ test: setup-integration
 setup-integration:
 	docker-compose -f tests/integration/docker-compose.yaml up -d --remove-orphans --force-recreate
 	docker tag registry:2.7.1 localhost:5000/registry:2.7.1
+	sleep 5
 	docker push localhost:5000/registry:2.7.1

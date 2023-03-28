@@ -40,8 +40,13 @@ class TestImageRef:
             to_reference=temp_reference,
             client=registry_client,
         )
-
         assert image1.image_json_str == image2.image_json_str
+        assert image1.image_json.rootfs == image2.image_json.rootfs
+        assert len(image1.layers) == len(image2.layers)
+        for layer in image2.layers:
+            content = layer.local_path.read_bytes()
+            assert layer.size == len(content)
+            assert f"sha256:{hashlib.sha256(content).hexdigest()}" == layer.digest
 
     def test_push_v2(self, repo, reference, temp_repo, temp_reference, registry_client):
         ref = ImageRef.from_image(

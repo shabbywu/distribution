@@ -131,17 +131,22 @@ class ImageRef(RepositoryResource):
             for layer in manifest.Layers:
                 gzipped_filepath = workplace / (layer + ".gz")
                 with (workplace / layer).open(mode="rb") as fh, gzip.open(gzipped_filepath, mode="wb") as compressed:
-                    gzipped_signer = HashSignWrapper(compressed)
+                    shutil.copyfileobj(fh, compressed)
+
+                # The gzipped file can only be obtained after the compressed object is closed
+                # (because the gzip context information has not yet been written).
+                gzipped_signer = HashSignWrapper()
+                with gzipped_filepath.open(mode="rb") as fh:
                     shutil.copyfileobj(fh, gzipped_signer)
 
-                    layers.append(
-                        LayerRef(
-                            repo=to_repo,
-                            digest=gzipped_signer.digest(),
-                            size=gzipped_signer.tell(),
-                            local_path=gzipped_filepath,
-                        )
+                layers.append(
+                    LayerRef(
+                        repo=to_repo,
+                        digest=gzipped_signer.digest(),
+                        size=gzipped_signer.tell(),
+                        local_path=gzipped_filepath,
                     )
+                )
 
             return cls(
                 repo=to_repo,
