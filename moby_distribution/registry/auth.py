@@ -9,6 +9,7 @@ from www_authenticate import parse
 from moby_distribution.registry.exceptions import AuthFailed
 from moby_distribution.spec.auth import TokenResponse
 
+AUTH_TIMEOUT = 60 * 3
 logger = logging.getLogger(__name__)
 
 
@@ -128,7 +129,8 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
         elif any([username, password]) and not all([username, password]):
             logger.warning("请同时提供 username 和 password!")
 
-        resp = requests.get(self.backend, headers=headers, params=params)
+        logger.info("sending authentication request to authorization service<%s>", self.backend)
+        resp = requests.get(self.backend, headers=headers, params=params, timeout=AUTH_TIMEOUT)
         if resp.status_code != 200:
             raise AuthFailed(
                 message="用户凭证校验失败, 请检查用户信息和操作权限",
