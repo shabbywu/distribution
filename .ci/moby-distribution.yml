@@ -1,0 +1,13 @@
+version: v2.0
+
+name: "Publish moby-distribution to pypi"
+on:
+  tag: [ "moby-distribution-*" ]
+
+stages:
+- template: poetry-build-and-publish.yaml
+  parameters:
+    username: "${{ settings.PYPI.username }}"
+    password: "${{ settings.PYPI.password }}"
+    project: "."
+    repository-url: "https://upload.pypi.org/legacy/"
