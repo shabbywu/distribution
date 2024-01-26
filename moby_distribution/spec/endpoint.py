@@ -41,7 +41,7 @@ class APIEndpoint(BaseModel):
                 return False, False
             return False, False
         except socket.timeout:
-            return False, False
+            raise
         except OSError:
             return False, False
         return True, True

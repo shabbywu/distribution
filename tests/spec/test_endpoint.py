@@ -2,6 +2,7 @@
 import datetime
 import pathlib
 import random
+import socket
 import ssl
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -130,9 +131,10 @@ def test_is_secure_repository(server, expected):
 
 
 def test_is_secure_repository_timeout(blocking_https_server):
-    assert APIEndpoint(
-        url=f"{blocking_https_server[0]}:{blocking_https_server[1]}", default_timeout=10
-    ).is_secure_repository() == (False, False)
+    with pytest.raises(socket.timeout):
+        assert APIEndpoint(
+            url=f"{blocking_https_server[0]}:{blocking_https_server[1]}", default_timeout=10
+        ).is_secure_repository()
 
 
 @pytest.mark.parametrize(
