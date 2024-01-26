@@ -4,13 +4,15 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Iterator, NamedTuple, Optional, Union
+from typing import Any, Callable, ContextManager, Iterator, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import libtrust
 from libtrust.keys import ec_key, rs_key
 
 logger = logging.getLogger(__name__)
+client_default_timeout = float("-inf")
+TypeTimeout = Optional[Union[Tuple[float, float], float]]
 
 
 def get_private_key() -> Union[libtrust.ECPrivateKey, libtrust.RSAPrivateKey]:

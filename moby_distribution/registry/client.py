@@ -1,5 +1,6 @@
 import logging
 from functools import partial
+from math import isinf
 from typing import Optional, Type, cast
 
 import curlify
@@ -7,7 +8,7 @@ import requests
 
 from moby_distribution.registry import exceptions
 from moby_distribution.registry.auth import AuthorizationProvider, BaseAuthentication, UniversalAuthentication
-from moby_distribution.registry.utils import LazyProxy
+from moby_distribution.registry.utils import LazyProxy, TypeTimeout
 from moby_distribution.spec.endpoint import OFFICIAL_ENDPOINT, APIEndpoint
 
 logger = logging.getLogger(__name__)
@@ -58,8 +59,10 @@ class DockerRegistryV2Client:
         password: Optional[str] = None,
         verify_certificate: bool = True,
         authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
-        default_timeout: float = 60 * 10,
+        default_timeout: TypeTimeout = 60 * 10,
     ):
+        if default_timeout is not None and not isinstance(default_timeout, tuple) and isinf(default_timeout):
+            raise ValueError("default_timeout should not be infinity.")
         if api_base_url.endswith("/"):
             api_base_url = api_base_url.rstrip("/")
         self.api_base_url = api_base_url
@@ -113,7 +116,9 @@ class DockerRegistryV2Client:
         return partial(self._request, self.session.head)
 
     def _request(self, method, *, should_retry: bool = True, **kwargs):
-        kwargs.setdefault("timeout", self.default_timeout)
+        # here use inf as a flag to use default timeout
+        if "timeout" not in kwargs or isinf(kwargs["timeout"]):
+            kwargs["timeout"] = self.default_timeout
         headers = kwargs.setdefault("headers", {})
         headers["Authorization"] = self.authorization
         try:

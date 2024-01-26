@@ -1,4 +1,5 @@
 from moby_distribution.registry.client import DockerRegistryV2Client, default_client
+from moby_distribution.registry.utils import TypeTimeout, client_default_timeout
 
 
 class RepositoryResource:
@@ -6,10 +7,13 @@ class RepositoryResource:
         self,
         repo: str,
         client: DockerRegistryV2Client = default_client,
+        *,
+        timeout: TypeTimeout = client_default_timeout,
     ):
         self.repo = repo
         if client is not None:
             self._client = client
+        self.timeout = timeout
 
     @property
     def client(self):

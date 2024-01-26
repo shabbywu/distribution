@@ -5,7 +5,7 @@ import libtrust
 from moby_distribution.registry.client import DockerRegistryV2Client, URLBuilder, default_client
 from moby_distribution.registry.exceptions import ResourceNotFound, UnSupportMediaType
 from moby_distribution.registry.resources import RepositoryResource
-from moby_distribution.registry.utils import get_private_key
+from moby_distribution.registry.utils import TypeTimeout, client_default_timeout, get_private_key
 from moby_distribution.spec.manifest import ManifestDescriptor, ManifestSchema1, ManifestSchema2, OCIManifestSchema1
 
 
@@ -21,8 +21,10 @@ class ManifestRef(RepositoryResource):
         repo: str,
         reference: str = "latest",
         client: DockerRegistryV2Client = default_client,
+        *,
+        timeout: TypeTimeout = client_default_timeout,
     ):
-        super().__init__(repo, client)
+        super().__init__(repo, client, timeout=timeout)
         self.reference = reference
 
     def get(self, media_type: str = ManifestSchema2.content_type()):
@@ -33,7 +35,7 @@ class ManifestRef(RepositoryResource):
         type_ = self.TYPES[media_type]
         url = URLBuilder.build_manifests_url(self.client.api_base_url, self.repo, self.reference)
         headers = {"Accept": media_type}
-        data = self.client.get(url=url, headers=headers).json()
+        data = self.client.get(url=url, headers=headers, timeout=self.timeout).json()
         return type_(**data)
 
     def get_metadata(self, media_type: str = ManifestSchema2.content_type()) -> Optional[ManifestDescriptor]:
@@ -44,7 +46,7 @@ class ManifestRef(RepositoryResource):
         headers = {"Accept": media_type}
         url = URLBuilder.build_manifests_url(self.client.api_base_url, self.repo, self.reference)
         try:
-            resp = self.client.head(url=url, headers=headers)
+            resp = self.client.head(url=url, headers=headers, timeout=self.timeout)
         except ResourceNotFound:
             return None
 
@@ -69,7 +71,7 @@ class ManifestRef(RepositoryResource):
 
         url = URLBuilder.build_manifests_url(self.client.api_base_url, self.repo, descriptor.digest)
         try:
-            resp = self.client.delete(url=url)
+            resp = self.client.delete(url=url, timeout=self.timeout)
         except ResourceNotFound:
             if raise_not_found:
                 raise
@@ -105,11 +107,11 @@ class ManifestRef(RepositoryResource):
 
         headers = {"Content-Type": manifest.content_type()}
         data = js.to_pretty_signature("signatures")
-        return self.client.put(url=url, data=data, headers=headers)
+        return self.client.put(url=url, data=data, headers=headers, timeout=self.timeout)
 
     def _put_new_manifest(self, manifest: Union[ManifestSchema2, OCIManifestSchema1]):
         """put the docker schema 2 manifest or OCI manifest to the repository"""
         url = URLBuilder.build_manifests_url(self.client.api_base_url, self.repo, self.reference)
         headers = {"Content-Type": manifest.content_type()}
         data = manifest.json()
-        return self.client.put(url=url, data=data, headers=headers)
+        return self.client.put(url=url, data=data, headers=headers, timeout=self.timeout)

@@ -15,7 +15,7 @@ from moby_distribution.registry.client import DockerRegistryV2Client, default_cl
 from moby_distribution.registry.resources import RepositoryResource
 from moby_distribution.registry.resources.blobs import Blob, HashSignWrapper
 from moby_distribution.registry.resources.manifests import ManifestRef
-from moby_distribution.registry.utils import generate_temp_dir, parse_image
+from moby_distribution.registry.utils import TypeTimeout, client_default_timeout, generate_temp_dir, parse_image
 from moby_distribution.spec.image_json import History, ImageJSON, default_created
 from moby_distribution.spec.manifest import (
     DockerManifestConfigDescriptor,
@@ -50,8 +50,10 @@ class ImageRef(RepositoryResource):
         layers: List[LayerRef],
         initial_config: str,
         client: DockerRegistryV2Client = default_client,
+        *,
+        timeout: TypeTimeout = client_default_timeout,
     ):
-        super().__init__(repo, client)
+        super().__init__(repo, client, timeout=timeout)
         self.reference = reference
         self.layers = layers
         self._initial_config = initial_config
@@ -205,7 +207,7 @@ class ImageRef(RepositoryResource):
 
         # Step 3.: upload the manifest
         manifest = ManifestSchema2(config=config_descriptor, layers=layer_descriptors)
-        ref = ManifestRef(repo=self.repo, reference=self.reference, client=self.client)
+        ref = ManifestRef(repo=self.repo, reference=self.reference, client=self.client, timeout=self.timeout)
         ref.put(manifest)
         if self._dirty:
             return ref.get(media_type=ManifestSchema2.content_type())
