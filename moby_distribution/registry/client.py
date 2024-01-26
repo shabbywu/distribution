@@ -29,7 +29,7 @@ class DockerRegistryV2Client:
         password: Optional[str] = None,
         authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
         default_timeout: TypeTimeout = 60 * 10,
-        https_detect_timeout: float = 10,
+        https_detect_timeout: float = 30,
     ):
         https_scheme = "https://"
         http_scheme = "http://"
@@ -62,15 +62,19 @@ class DockerRegistryV2Client:
         verify_certificate: bool = True,
         authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
         default_timeout: TypeTimeout = 60 * 10,
+        auth_timeout: TypeTimeout = 30,
     ):
         if default_timeout is not None and not isinstance(default_timeout, tuple) and isinf(default_timeout):
             raise ValueError("default_timeout should not be infinity.")
+        if auth_timeout is not None and not isinstance(auth_timeout, tuple) and isinf(auth_timeout):
+            raise ValueError("auth_timeout should not be infinity.")
         if api_base_url.endswith("/"):
             api_base_url = api_base_url.rstrip("/")
         self.api_base_url = api_base_url
         self.session = requests.session()
         self.session.verify = verify_certificate
         self.default_timeout = default_timeout
+        self.auth_timeout = auth_timeout
 
         self.username = username
         self.password = password
@@ -141,7 +145,9 @@ class DockerRegistryV2Client:
             if auto_auth:
                 www_authenticate = resp.headers["www-authenticate"]
                 auth = self.authenticator_class(www_authenticate)
-                self._authed = auth.authenticate(username=self.username, password=self.password)
+                self._authed = auth.authenticate(
+                    username=self.username, password=self.password, timeout=self.auth_timeout
+                )
                 raise exceptions.RetryAgain
 
             logger.debug("Requesting %s, but PermissionDeny, Equivalent curl command: %s", url, curl)

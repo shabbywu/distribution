@@ -7,9 +7,10 @@ import requests
 from www_authenticate import parse
 
 from moby_distribution.registry.exceptions import AuthFailed
+from moby_distribution.registry.utils import TypeTimeout
 from moby_distribution.spec.auth import TokenResponse
 
-AUTH_TIMEOUT = 60 * 3
+AUTH_TIMEOUT = 30
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +36,9 @@ class BaseAuthentication:
             self._www_authenticate = parse(self._raw_www_authenticate)
         return self._www_authenticate
 
-    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+    def authenticate(
+        self, username: Optional[str] = None, password: Optional[str] = None, *, timeout: TypeTimeout = AUTH_TIMEOUT
+    ) -> AuthorizationProvider:
         raise NotImplementedError
 
     @property
@@ -73,7 +76,9 @@ class TokenAuthorizationProvider(AuthorizationProvider):
 class HTTPBasicAuthentication(BaseAuthentication):
     """`HTTP Basic Authentication` Authenticator"""
 
-    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+    def authenticate(
+        self, username: Optional[str] = None, password: Optional[str] = None, *, timeout: TypeTimeout = AUTH_TIMEOUT
+    ) -> AuthorizationProvider:
         if username is None or password is None:
             raise AuthFailed(
                 message="请提供用户名和密码",
@@ -108,7 +113,9 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
         self.service = self.bearer["service"]
         self.scope = self.bearer.get("scope", None)
 
-    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+    def authenticate(
+        self, username: Optional[str] = None, password: Optional[str] = None, *, timeout: TypeTimeout = AUTH_TIMEOUT
+    ) -> AuthorizationProvider:
         """Authenticate to the registry.
         If no username and password provided, will authenticate as the anonymous user.
 
@@ -130,7 +137,7 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
             logger.warning("请同时提供 username 和 password!")
 
         logger.info("sending authentication request to authorization service<%s>", self.backend)
-        resp = requests.get(self.backend, headers=headers, params=params, timeout=AUTH_TIMEOUT)
+        resp = requests.get(self.backend, headers=headers, params=params, timeout=timeout)
         if resp.status_code != 200:
             raise AuthFailed(
                 message="用户凭证校验失败, 请检查用户信息和操作权限",
@@ -143,9 +150,13 @@ class DockerRegistryTokenAuthentication(BaseAuthentication):
 class UniversalAuthentication(BaseAuthentication):
     """An Auto auth backend, which will auto auth by `scheme` provided by www_authenticate"""
 
-    def authenticate(self, username: Optional[str] = None, password: Optional[str] = None) -> AuthorizationProvider:
+    def authenticate(
+        self, username: Optional[str] = None, password: Optional[str] = None, *, timeout: TypeTimeout = AUTH_TIMEOUT
+    ) -> AuthorizationProvider:
         if "basic" in self.www_authenticate:
-            return HTTPBasicAuthentication(self.raw_www_authenticate).authenticate(username, password)
+            return HTTPBasicAuthentication(self.raw_www_authenticate).authenticate(username, password, timeout=timeout)
         elif "bearer" in self.www_authenticate:
-            return DockerRegistryTokenAuthentication(self.raw_www_authenticate).authenticate(username, password)
+            return DockerRegistryTokenAuthentication(self.raw_www_authenticate).authenticate(
+                username, password, timeout=timeout
+            )
         raise NotImplementedError("未支持的认证方式")
