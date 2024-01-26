@@ -1,7 +1,7 @@
 import re
 import socket
 import ssl
-from typing import Pattern, Tuple, Union
+from typing import Optional, Pattern, Tuple
 
 from pydantic import BaseModel
 
@@ -10,9 +10,8 @@ class APIEndpoint(BaseModel):
     version: int = 2
     url: str
     official: bool = False
-    default_timeout: Union[Tuple[float, float], float] = 60
 
-    def is_secure_repository(self) -> Tuple[bool, bool]:
+    def is_secure_repository(self, *, timeout: Optional[float] = None) -> Tuple[bool, bool]:
         """Detect if the repository is secure
 
         returns Tuple[bool, bool], the first one mean if the server support https?,
@@ -25,10 +24,6 @@ class APIEndpoint(BaseModel):
         parts = match.groupdict()
         hostname = parts.get("domain") or parts.get("ipv4") or parts.get("ipv6")
         port = int(parts.get("port") or 443)
-        if isinstance(self.default_timeout, tuple):
-            timeout = sum(self.default_timeout)
-        else:
-            timeout = self.default_timeout
         try:
             context = ssl.create_default_context()
             connection = socket.create_connection((hostname, port), timeout=timeout)

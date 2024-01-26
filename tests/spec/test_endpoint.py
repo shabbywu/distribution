@@ -132,9 +132,9 @@ def test_is_secure_repository(server, expected):
 
 def test_is_secure_repository_timeout(blocking_https_server):
     with pytest.raises(socket.timeout):
-        assert APIEndpoint(
-            url=f"{blocking_https_server[0]}:{blocking_https_server[1]}", default_timeout=10
-        ).is_secure_repository()
+        assert APIEndpoint(url=f"{blocking_https_server[0]}:{blocking_https_server[1]}").is_secure_repository(
+            timeout=10.0
+        )
 
 
 @pytest.mark.parametrize(

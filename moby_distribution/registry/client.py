@@ -28,10 +28,12 @@ class DockerRegistryV2Client:
         username: Optional[str] = None,
         password: Optional[str] = None,
         authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
+        default_timeout: TypeTimeout = 60 * 10,
+        https_detect_timeout: float = 10,
     ):
         https_scheme = "https://"
         http_scheme = "http://"
-        enable_https, certificate_valid = api_endpoint.is_secure_repository()
+        enable_https, certificate_valid = api_endpoint.is_secure_repository(timeout=https_detect_timeout)
         if enable_https:
             client = cls(
                 api_base_url=f"{https_scheme}{api_endpoint.api_base_url}",
@@ -39,7 +41,7 @@ class DockerRegistryV2Client:
                 password=password,
                 verify_certificate=certificate_valid,
                 authenticator_class=authenticator_class,
-                default_timeout=api_endpoint.default_timeout,
+                default_timeout=default_timeout,
             )
             if certificate_valid or client.ping():
                 return client
@@ -49,7 +51,7 @@ class DockerRegistryV2Client:
             password=password,
             verify_certificate=False,
             authenticator_class=authenticator_class,
-            default_timeout=api_endpoint.default_timeout,
+            default_timeout=default_timeout,
         )
 
     def __init__(
