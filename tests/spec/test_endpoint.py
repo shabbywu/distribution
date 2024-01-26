@@ -21,7 +21,7 @@ def get_server_address():
     return "localhost", random.randint(10000, 40000)
 
 
-@pytest.fixture
+@pytest.fixture()
 def certfile(tmp_path: pathlib.Path):
     """generate a self-signed certificate"""
     one_day = datetime.timedelta(1, 0, 0)
@@ -68,7 +68,7 @@ def certfile(tmp_path: pathlib.Path):
     certificate_path.unlink()
 
 
-@pytest.fixture
+@pytest.fixture()
 def httpd():
     server_address = get_server_address()
     for i in range(10):
@@ -82,7 +82,7 @@ def httpd():
         pytest.skip("failed to start http server")
 
 
-@pytest.fixture
+@pytest.fixture()
 def http_server(httpd):
     sa = httpd.socket.getsockname()
     t = threading.Thread(target=httpd.serve_forever)
@@ -91,7 +91,7 @@ def http_server(httpd):
     httpd.shutdown()
 
 
-@pytest.fixture
+@pytest.fixture()
 def https_server(httpd, certfile):
     httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True, ssl_version=ssl.PROTOCOL_TLS, certfile=certfile)
     sa = httpd.socket.getsockname()
@@ -101,7 +101,18 @@ def https_server(httpd, certfile):
     httpd.shutdown()
 
 
-@pytest.fixture
+@pytest.fixture()
+def blocking_https_server(httpd, certfile):
+    """start a not running https server, will always block every request"""
+    httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True, ssl_version=ssl.PROTOCOL_TLS, certfile=certfile)
+    sa = httpd.socket.getsockname()
+    # t = threading.Thread(target=httpd.serve_forever)
+    # t.start()
+    yield sa[0], sa[1]
+    # httpd.shutdown()
+
+
+@pytest.fixture()
 def server(request):
     return request.getfixturevalue(request.param)
 
@@ -116,6 +127,12 @@ def server(request):
 )
 def test_is_secure_repository(server, expected):
     assert APIEndpoint(url=f"{server[0]}:{server[1]}").is_secure_repository() == expected
+
+
+def test_is_secure_repository_timeout(blocking_https_server):
+    assert APIEndpoint(
+        url=f"{blocking_https_server[0]}:{blocking_https_server[1]}", default_timeout=10
+    ).is_secure_repository() == (False, False)
 
 
 @pytest.mark.parametrize(

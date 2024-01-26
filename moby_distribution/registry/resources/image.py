@@ -5,6 +5,7 @@ import json
 import logging
 import shutil
 import tarfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional
 
@@ -182,18 +183,22 @@ class ImageRef(RepositoryResource):
                     tarball.add(name=str(f.absolute()), arcname=str(f.relative_to(workplace)))
         return dest
 
-    def push(self, media_type: str = ManifestSchema2.content_type()):
+    def push(self, media_type: str = ManifestSchema2.content_type(), *, max_worker: int = 5):
         """push the image to the registry."""
         if media_type == ManifestSchema2.content_type():
-            return self.push_v2()
+            return self.push_v2(max_worker=max_worker)
         raise NotImplementedError("only support push images with Manifest Schema2.")
 
-    def push_v2(self) -> ManifestSchema2:
+    def push_v2(self, *, max_worker: int = 5) -> ManifestSchema2:
         """push the image to the registry, with Manifest Schema2."""
+        layer_descriptors_futures = []
         layer_descriptors = []
         # Step 1: upload all layers
-        for layer in self.layers:
-            layer_descriptors.append(self._upload_layer(layer))
+        with ThreadPoolExecutor(max_workers=max_worker) as thread_pool:
+            for layer in self.layers:
+                layer_descriptors_futures.append(thread_pool.submit(self._upload_layer, layer))
+        for future in layer_descriptors_futures:
+            layer_descriptors.append(future.result())
 
         # Step 2: upload the image json
         config_descriptor = self._upload_config(self.image_json_str)

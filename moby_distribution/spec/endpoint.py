@@ -10,6 +10,7 @@ class APIEndpoint(BaseModel):
     version: int = 2
     url: str
     official: bool = False
+    default_timeout: float = 60 * 10
 
     def is_secure_repository(self) -> Tuple[bool, bool]:
         """Detect if the repository is secure
@@ -24,10 +25,9 @@ class APIEndpoint(BaseModel):
         parts = match.groupdict()
         hostname = parts.get("domain") or parts.get("ipv4") or parts.get("ipv6")
         port = int(parts.get("port") or 443)
-
         try:
             context = ssl.create_default_context()
-            connection = socket.create_connection((hostname, port))
+            connection = socket.create_connection((hostname, port), timeout=self.default_timeout)
             sock = context.wrap_socket(connection, server_hostname=hostname)
             sock.getpeercert()
         except ssl.SSLError as e:
@@ -35,6 +35,8 @@ class APIEndpoint(BaseModel):
                 return True, False
             elif e.reason == "WRONG_VERSION_NUMBER":
                 return False, False
+            return False, False
+        except socket.timeout:
             return False, False
         except OSError:
             return False, False

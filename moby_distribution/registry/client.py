@@ -38,6 +38,7 @@ class DockerRegistryV2Client:
                 password=password,
                 verify_certificate=certificate_valid,
                 authenticator_class=authenticator_class,
+                default_timeout=api_endpoint.default_timeout,
             )
             if certificate_valid or client.ping():
                 return client
@@ -47,6 +48,7 @@ class DockerRegistryV2Client:
             password=password,
             verify_certificate=False,
             authenticator_class=authenticator_class,
+            default_timeout=api_endpoint.default_timeout,
         )
 
     def __init__(
@@ -56,12 +58,14 @@ class DockerRegistryV2Client:
         password: Optional[str] = None,
         verify_certificate: bool = True,
         authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
+        default_timeout: float = 60 * 10,
     ):
         if api_base_url.endswith("/"):
             api_base_url = api_base_url.rstrip("/")
         self.api_base_url = api_base_url
         self.session = requests.session()
         self.session.verify = verify_certificate
+        self.default_timeout = default_timeout
 
         self.username = username
         self.password = password
@@ -109,6 +113,7 @@ class DockerRegistryV2Client:
         return partial(self._request, self.session.head)
 
     def _request(self, method, *, should_retry: bool = True, **kwargs):
+        kwargs.setdefault("timeout", self.default_timeout)
         headers = kwargs.setdefault("headers", {})
         headers["Authorization"] = self.authorization
         try:
