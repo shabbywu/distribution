@@ -117,7 +117,8 @@ class DockerRegistryV2Client:
 
     def _request(self, method, *, should_retry: bool = True, **kwargs):
         # here use inf as a flag to use default timeout
-        if "timeout" not in kwargs or isinf(kwargs["timeout"]):
+        kwargs.setdefault("timeout", self.default_timeout)
+        if kwargs["timeout"] is not None and not isinstance(kwargs["timeout"], tuple) and isinf(kwargs["timeout"]):
             kwargs["timeout"] = self.default_timeout
         headers = kwargs.setdefault("headers", {})
         headers["Authorization"] = self.authorization
