@@ -30,6 +30,7 @@ class DockerRegistryV2Client:
         authenticator_class: Type[BaseAuthentication] = UniversalAuthentication,
         default_timeout: TypeTimeout = 60 * 10,
         https_detect_timeout: float = 30,
+        auth_timeout: TypeTimeout = 30,
     ):
         https_scheme = "https://"
         http_scheme = "http://"
@@ -42,6 +43,7 @@ class DockerRegistryV2Client:
                 verify_certificate=certificate_valid,
                 authenticator_class=authenticator_class,
                 default_timeout=default_timeout,
+                auth_timeout=auth_timeout,
             )
             if certificate_valid or client.ping():
                 return client
@@ -52,6 +54,7 @@ class DockerRegistryV2Client:
             verify_certificate=False,
             authenticator_class=authenticator_class,
             default_timeout=default_timeout,
+            auth_timeout=auth_timeout,
         )
 
     def __init__(
