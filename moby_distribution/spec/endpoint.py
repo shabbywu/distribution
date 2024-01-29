@@ -1,9 +1,49 @@
 import re
 import socket
 import ssl
+from functools import wraps
 from typing import Optional, Pattern, Tuple
 
-from pydantic import BaseModel
+from pydantic import VERSION, BaseModel
+
+_endpoint_status_cache = {
+    # well-known endpoints
+    "registry.hub.docker.com": (True, True),
+    "index.docker.io": (True, True),
+    "quay.io": (True, True),
+}
+
+
+def cache_endpoint_status(func):
+    @wraps(func)
+    def is_secure_repository(self, *, timeout: Optional[float] = None):
+        if self.url in _endpoint_status_cache:
+            return _endpoint_status_cache[self.url]
+        _endpoint_status_cache[self.url] = func(self, timeout=timeout)
+        return _endpoint_status_cache[self.url]
+
+    return is_secure_repository
+
+
+class cached_property:
+    """
+    Decorator that converts a method with a single self argument into
+    a property cached on the instance.
+    """
+
+    # NOTE: implementation borrowed from Django.
+    # NOTE: we use fget, fset and fdel attributes to mimic @property.
+    fset = fdel = None
+
+    def __init__(self, fget):
+        self.fget = fget
+        self.__doc__ = getattr(fget, '__doc__')
+
+    def __get__(self, instance, type=None):
+        if instance is None:
+            return self
+        res = instance.__dict__[self.fget.__name__] = self.fget(instance)
+        return res
 
 
 class APIEndpoint(BaseModel):
@@ -11,6 +51,14 @@ class APIEndpoint(BaseModel):
     url: str
     official: bool = False
 
+    class Config:
+        arbitrary_types_allowed = True
+        if VERSION.startswith("1."):
+            keep_untouched = (cached_property,)
+        else:
+            ignored_types = (cached_property,)
+
+    @cache_endpoint_status
     def is_secure_repository(self, *, timeout: Optional[float] = None) -> Tuple[bool, bool]:
         """Detect if the repository is secure
 
@@ -41,7 +89,7 @@ class APIEndpoint(BaseModel):
             return False, False
         return True, True
 
-    @property
+    @cached_property
     def api_base_url(self) -> str:
         match = url_regex().match(self.url)
         if not match:
