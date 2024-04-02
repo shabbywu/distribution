@@ -139,3 +139,20 @@ class TestAlpine:
             docker_cli.containers.run(f"{registry_netloc}/alpine:append", command="cat /append/content", remove=True)
             == b"__flag__\n"
         )
+
+    def test_append_gzip(
+        self, registry_client, tmp_path, alpine_tar, alpine_append_gzip_layer, docker_cli, registry_netloc
+    ):
+        ref = ImageRef.from_tarball(
+            workplace=tmp_path, src=alpine_tar, to_repo="alpine", to_reference="append-gzip", client=registry_client
+        )
+        ref.add_layer(LayerRef(local_path=alpine_append_gzip_layer))
+        ref.push()
+
+        ImageRef.from_image(from_repo="alpine", from_reference="append-gzip", client=registry_client)
+        assert (
+            docker_cli.containers.run(
+                f"{registry_netloc}/alpine:append-gzip", command="cat /append/content", remove=True
+            )
+            == b"__flag__\n"
+        )

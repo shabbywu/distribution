@@ -132,6 +132,7 @@ class ImageRef(RepositoryResource):
 
             layers = []
             for layer in manifest.Layers:
+                # gzip it for smaller size
                 gzipped_filepath = workplace / (layer + ".gz")
                 with (workplace / layer).open(mode="rb") as fh, gzip.open(gzipped_filepath, mode="wb") as compressed:
                     shutil.copyfileobj(fh, compressed)
@@ -226,24 +227,28 @@ class ImageRef(RepositoryResource):
         uncompressed_tarball_signer = HashSignWrapper()
         # Add local layer
         if layer.local_path:
-            # Step 1: calculate the sha256 sum for the gzipped_tarball
-            gzipped_signer = HashSignWrapper()
+            # Step 1: calculate the sha256 sum for the tarball file
+            raw_tarball_signer = HashSignWrapper()
             with layer.local_path.open(mode="rb") as gzipped:
-                shutil.copyfileobj(gzipped, gzipped_signer)
-                size = gzipped_signer.tell()
+                shutil.copyfileobj(gzipped, raw_tarball_signer)
+                size = raw_tarball_signer.tell()
 
             # Step 2: calculate the sha256 sum for the uncompressed_tarball
-            with gzip.open(filename=layer.local_path) as uncompressed:
-                shutil.copyfileobj(uncompressed, uncompressed_tarball_signer)
+            # for gzipped tarball, we need decompress first
+            try:
+                with gzip.open(filename=layer.local_path) as uncompressed:
+                    shutil.copyfileobj(uncompressed, uncompressed_tarball_signer)
+            except OSError:
+                uncompressed_tarball_signer = raw_tarball_signer
 
-            if layer.digest and layer.digest != gzipped_signer.digest():
+            if layer.digest and layer.digest != raw_tarball_signer.digest():
                 raise ValueError(
                     "Wrong digest, layer.digest<'%s'> != signer.digest<'%s'>",
                     layer.digest,
-                    gzipped_signer.digest(),
+                    raw_tarball_signer.digest(),
                 )
 
-            layer.digest = gzipped_signer.digest()
+            layer.digest = raw_tarball_signer.digest()
             layer.repo = self.repo
             layer.size = size
 
@@ -252,9 +257,11 @@ class ImageRef(RepositoryResource):
             with generate_temp_dir() as temp_dir:
                 # Step 1: calculate the sha256 sum for the gzipped_tarball
                 with (temp_dir / "blob").open(mode="wb") as fh:
-                    gzipped_signer = HashSignWrapper(fh=fh)
-                    Blob(repo=layer.repo, digest=layer.digest, fileobj=gzipped_signer, client=self.client).download()
-                    size = gzipped_signer.tell()
+                    raw_tarball_signer = HashSignWrapper(fh=fh)
+                    Blob(
+                        repo=layer.repo, digest=layer.digest, fileobj=raw_tarball_signer, client=self.client
+                    ).download()
+                    size = raw_tarball_signer.tell()
 
                 # Step 2: calculate the sha256 sum for the uncompressed_tarball
                 with gzip.open(filename=(temp_dir / "blob")) as uncompressed:
@@ -262,11 +269,11 @@ class ImageRef(RepositoryResource):
 
             if layer.size != size:
                 raise ValueError("Wrong Size, layer.size<'%d'> != signer.size<'%d'>", layer.size, size)
-            if layer.digest != gzipped_signer.digest():
+            if layer.digest != raw_tarball_signer.digest():
                 raise ValueError(
                     "Wrong digest, layer.digest<'%s'> != signer.digest<'%s'>",
                     layer.digest,
-                    gzipped_signer.digest(),
+                    raw_tarball_signer.digest(),
                 )
 
         self._dirty = True
@@ -283,7 +290,7 @@ class ImageRef(RepositoryResource):
         self.layers.append(layer)
 
         return DockerManifestLayerDescriptor(
-            digest=gzipped_signer.digest(),
+            digest=raw_tarball_signer.digest(),
             size=size,
         )
 
