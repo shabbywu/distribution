@@ -32,4 +32,7 @@ def auth_response():
 
 @pytest.fixture
 def image_json_dict():
-    return json.loads((assets / "image_json.json").read_text())
+    if __version__.startswith("2."):
+        return json.loads((assets / "image_json.pydantic_v2.json").read_text())
+    else:
+        return json.loads((assets / "image_json.pydantic_v1.json").read_text())
