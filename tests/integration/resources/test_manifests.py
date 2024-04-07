@@ -1,7 +1,9 @@
 import hashlib
+import json
 
 import pytest
 
+from pydantic import __version__
 from moby_distribution.registry.resources.manifests import ManifestRef, ManifestSchema1
 
 
@@ -27,7 +29,10 @@ class TestManifestRef:
     )
     def test_get(self, repo, reference, registry_client, media_type, expected_fixture):
         ref = ManifestRef(repo=repo, client=registry_client, reference=reference)
-        assert ref.get(media_type).dict(exclude={"signatures"}, exclude_unset=True) == expected_fixture
+        assert (
+            ref.get(media_type).dict(exclude={"signatures"}, exclude_unset=True)
+            == expected_fixture
+        )
 
     @pytest.mark.parametrize(
         "media_type, expected_fixture",
@@ -43,14 +48,25 @@ class TestManifestRef:
         ],
         indirect=["expected_fixture"],
     )
-    def test_get_metadata(self, repo, reference, registry_client, media_type, expected_fixture):
+    def test_get_metadata(
+        self, repo, reference, registry_client, media_type, expected_fixture
+    ):
         ref = ManifestRef(repo=repo, client=registry_client, reference=reference)
 
-        dumped = ref.get(media_type).json(indent=3, exclude_unset=True)
+        if __version__.startswith("2."):
+            dumped = json.dumps(
+                ref.get(media_type).model_dump(mode="json", exclude_unset=True),
+                indent=3,
+            )
+        else:
+            dumped = ref.get(media_type).json(indent=3, exclude_unset=True)
         descriptor = ref.get_metadata(media_type)
 
         assert descriptor.dict(exclude_unset=True) == expected_fixture
         assert descriptor.size == len(dumped)
 
         if media_type != ManifestSchema1.content_type():
-            assert descriptor.digest == f"sha256:{hashlib.sha256(dumped.encode()).hexdigest()}"
+            assert (
+                descriptor.digest
+                == f"sha256:{hashlib.sha256(dumped.encode()).hexdigest()}"
+            )

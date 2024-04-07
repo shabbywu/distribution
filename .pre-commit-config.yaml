@@ -6,20 +6,18 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: debug-statements
-  - repo: https://github.com/timothycrosley/isort
-    rev: 5.7.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.1.6"
     hooks:
-      - id: isort
-        additional_dependencies: [toml]
-  - repo: https://github.com/psf/black
-    rev: 20.8b1
+      - id: ruff
+        args: ["--fix", "--show-fixes"]
+      - id: ruff-format
+  # Changes tabs to spaces
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.4
     hooks:
-    - id: black
-      args: [--config=./pyproject.toml]
-  - repo: https://github.com/pycqa/flake8
-    rev: 3.9.2
-    hooks:
-      - id: flake8
+    - id: remove-tabs
+      exclude: ^(docs|Makefile)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: 'v0.770'
     hooks:

@@ -31,4 +31,4 @@ class Descriptor(BaseModel):
     digest: str
     urls: List[str] = Field(default_factory=list)
     annotations: Dict[str, str] = Field(default_factory=dict)
-    platform: Optional[Platform]
+    platform: Optional[Platform] = None

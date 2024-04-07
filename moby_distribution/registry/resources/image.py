@@ -9,13 +9,18 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, __version__
 
 from moby_distribution.registry.client import DockerRegistryV2Client, default_client
 from moby_distribution.registry.resources import RepositoryResource
 from moby_distribution.registry.resources.blobs import Blob, HashSignWrapper
 from moby_distribution.registry.resources.manifests import ManifestRef
-from moby_distribution.registry.utils import TypeTimeout, client_default_timeout, generate_temp_dir, parse_image
+from moby_distribution.registry.utils import (
+    TypeTimeout,
+    client_default_timeout,
+    generate_temp_dir,
+    parse_image,
+)
 from moby_distribution.spec.image_json import History, ImageJSON, default_created
 from moby_distribution.spec.manifest import (
     DockerManifestConfigDescriptor,
@@ -37,7 +42,7 @@ class LayerRef(BaseModel):
     digest: str = ""
     size: int = -1
     exists: bool = False
-    local_path: Optional[Path]
+    local_path: Optional[Path] = None
 
 
 class ImageRef(RepositoryResource):
@@ -79,19 +84,26 @@ class ImageRef(RepositoryResource):
             to_repo = from_repo
         if to_reference is None:
             to_reference = from_reference
-        manifest = ManifestRef(repo=from_repo, reference=from_reference, client=client).get(
-            ManifestSchema2.content_type()
-        )
+        manifest = ManifestRef(
+            repo=from_repo, reference=from_reference, client=client
+        ).get(ManifestSchema2.content_type())
         layers = [
-            LayerRef(repo=from_repo, digest=layer.digest, size=layer.size, exists=True) for layer in manifest.layers
+            LayerRef(repo=from_repo, digest=layer.digest, size=layer.size, exists=True)
+            for layer in manifest.layers
         ]
 
         fh = io.BytesIO()
-        Blob(repo=from_repo, digest=manifest.config.digest, client=client, fileobj=fh).download()
+        Blob(
+            repo=from_repo, digest=manifest.config.digest, client=client, fileobj=fh
+        ).download()
         fh.seek(0)
 
         return cls(
-            repo=to_repo, reference=to_reference, layers=layers, initial_config=fh.read().decode(), client=client
+            repo=to_repo,
+            reference=to_reference,
+            layers=layers,
+            initial_config=fh.read().decode(),
+            client=client,
         )
 
     @classmethod
@@ -134,7 +146,9 @@ class ImageRef(RepositoryResource):
             for layer in manifest.Layers:
                 # gzip it for smaller size
                 gzipped_filepath = workplace / (layer + ".gz")
-                with (workplace / layer).open(mode="rb") as fh, gzip.open(gzipped_filepath, mode="wb") as compressed:
+                with (workplace / layer).open(mode="rb") as fh, gzip.open(
+                    gzipped_filepath, mode="wb"
+                ) as compressed:
                     shutil.copyfileobj(fh, compressed)
 
                 # The gzipped file can only be obtained after the compressed object is closed
@@ -178,15 +192,21 @@ class ImageRef(RepositoryResource):
                 manifest.Layers.append(self._save_layer(workplace, layer=layer))
 
             # Step 3. save manifest
-            (workplace / "manifest.json").write_text(f"[{manifest.json(by_alias=True)}]")
+            (workplace / "manifest.json").write_text(
+                f"[{manifest.json(by_alias=True)}]"
+            )
 
             # Step 4. save as tar
             with tarfile.open(mode="w", name=dest) as tarball:
                 for f in workplace.iterdir():
-                    tarball.add(name=str(f.absolute()), arcname=str(f.relative_to(workplace)))
+                    tarball.add(
+                        name=str(f.absolute()), arcname=str(f.relative_to(workplace))
+                    )
         return dest
 
-    def push(self, media_type: str = ManifestSchema2.content_type(), *, max_worker: int = 5):
+    def push(
+        self, media_type: str = ManifestSchema2.content_type(), *, max_worker: int = 5
+    ):
         """push the image to the registry."""
         if media_type == ManifestSchema2.content_type():
             return self.push_v2(max_worker=max_worker)
@@ -199,7 +219,9 @@ class ImageRef(RepositoryResource):
         # Step 1: upload all layers
         with ThreadPoolExecutor(max_workers=max_worker) as thread_pool:
             for layer in self.layers:
-                layer_descriptors_futures.append(thread_pool.submit(self._upload_layer, layer))
+                layer_descriptors_futures.append(
+                    thread_pool.submit(self._upload_layer, layer)
+                )
         for future in layer_descriptors_futures:
             layer_descriptors.append(future.result())
 
@@ -208,13 +230,20 @@ class ImageRef(RepositoryResource):
 
         # Step 3.: upload the manifest
         manifest = ManifestSchema2(config=config_descriptor, layers=layer_descriptors)
-        ref = ManifestRef(repo=self.repo, reference=self.reference, client=self.client, timeout=self.timeout)
+        ref = ManifestRef(
+            repo=self.repo,
+            reference=self.reference,
+            client=self.client,
+            timeout=self.timeout,
+        )
         ref.put(manifest)
         if self._dirty:
             return ref.get(media_type=ManifestSchema2.content_type())
         return manifest
 
-    def add_layer(self, layer: LayerRef, history: Optional[History] = None) -> DockerManifestLayerDescriptor:
+    def add_layer(
+        self, layer: LayerRef, history: Optional[History] = None
+    ) -> DockerManifestLayerDescriptor:
         """Add a layer to this image.
 
         Step:
@@ -259,7 +288,10 @@ class ImageRef(RepositoryResource):
                 with (temp_dir / "blob").open(mode="wb") as fh:
                     raw_tarball_signer = HashSignWrapper(fh=fh)
                     Blob(
-                        repo=layer.repo, digest=layer.digest, fileobj=raw_tarball_signer, client=self.client
+                        repo=layer.repo,
+                        digest=layer.digest,
+                        fileobj=raw_tarball_signer,
+                        client=self.client,
                     ).download()
                     size = raw_tarball_signer.tell()
 
@@ -268,7 +300,11 @@ class ImageRef(RepositoryResource):
                     shutil.copyfileobj(uncompressed, uncompressed_tarball_signer)
 
             if layer.size != size:
-                raise ValueError("Wrong Size, layer.size<'%d'> != signer.size<'%d'>", layer.size, size)
+                raise ValueError(
+                    "Wrong Size, layer.size<'%d'> != signer.size<'%d'>",
+                    layer.size,
+                    size,
+                )
             if layer.digest != raw_tarball_signer.digest():
                 raise ValueError(
                     "Wrong digest, layer.digest<'%s'> != signer.digest<'%s'>",
@@ -308,7 +344,17 @@ class ImageRef(RepositoryResource):
         if not self._dirty:
             return self._initial_config
         image_json = self.image_json
-        return image_json.json(exclude_unset=True, exclude_defaults=True, separators=(",", ":"))
+        if __version__.startswith("2."):
+            return json.dumps(
+                image_json.model_dump(
+                    mode="json", exclude_unset=True, exclude_defaults=True
+                ),
+                separators=(",", ":"),
+            )
+        else:
+            return image_json.json(
+                exclude_unset=True, exclude_defaults=True, separators=(",", ":")
+            )
 
     def _save_layer(self, workplace: Path, layer: LayerRef) -> str:
         """Download the gzipped layer, and uncompress as the raw tarball.
@@ -321,9 +367,16 @@ class ImageRef(RepositoryResource):
         temp_tarball_path = workplace / "layer.tar"
 
         if layer.local_path is None:
-            Blob(repo=layer.repo, digest=layer.digest, local_path=gzip_path, client=self.client).download()
+            Blob(
+                repo=layer.repo,
+                digest=layer.digest,
+                local_path=gzip_path,
+                client=self.client,
+            ).download()
 
-        with gzip.open(filename=gzip_path) as uncompressed, temp_tarball_path.open(mode="wb") as fh:
+        with gzip.open(filename=gzip_path) as uncompressed, temp_tarball_path.open(
+            mode="wb"
+        ) as fh:
             signer = HashSignWrapper(fh)
             shutil.copyfileobj(uncompressed, signer)
 
@@ -333,7 +386,10 @@ class ImageRef(RepositoryResource):
         if layer.local_path is None:
             gzip_path.unlink()
 
-        shutil.move(str(temp_tarball_path.absolute()), str((workplace / tarball_path).absolute()))
+        shutil.move(
+            str(temp_tarball_path.absolute()),
+            str((workplace / tarball_path).absolute()),
+        )
         return tarball_path
 
     def _upload_layer(self, layer: LayerRef) -> DockerManifestLayerDescriptor:
@@ -344,7 +400,9 @@ class ImageRef(RepositoryResource):
         """
 
         if layer.exists and layer.repo != self.repo:
-            descriptor = Blob(repo=self.repo, digest=layer.digest, client=self.client).mount_from(from_repo=layer.repo)
+            descriptor = Blob(
+                repo=self.repo, digest=layer.digest, client=self.client
+            ).mount_from(from_repo=layer.repo)
         elif not layer.exists:
             blob = Blob(repo=self.repo, local_path=layer.local_path, client=self.client)
             descriptor = blob.upload()
@@ -362,7 +420,11 @@ class ImageRef(RepositoryResource):
 
         :raise RequestErrorWithResponse: raise if an error occur.
         """
-        descriptor = Blob(repo=self.repo, fileobj=io.BytesIO(image_json_str.encode()), client=self.client).upload()
+        descriptor = Blob(
+            repo=self.repo,
+            fileobj=io.BytesIO(image_json_str.encode()),
+            client=self.client,
+        ).upload()
         return DockerManifestConfigDescriptor(
             size=len(image_json_str),
             digest=descriptor.digest,

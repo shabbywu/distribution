@@ -34,7 +34,7 @@ class ManifestSchema1(BaseModel):
     architecture: str
     fsLayers: List[FileSystemLayer]
     history: List[Schema1History]
-    signatures: Optional[List[JWS]]
+    signatures: Optional[List[JWS]] = None
 
     @staticmethod
     def content_type() -> str:
@@ -52,7 +52,7 @@ class PlatformSpec(Platform):
     PlatformSpec specifies a platform where a particular image manifest is applicable.
     """
 
-    features: Optional[List[str]]
+    features: Optional[List[str]] = None
 
 
 class DockerManifestConfigDescriptor(Descriptor):
@@ -147,4 +147,4 @@ class OCIManifestSchema1(BaseModel):
 class ManifestDescriptor(Descriptor):
     """ManifestDescriptor references a platform-specific manifest."""
 
-    platform: Optional[PlatformSpec]
+    platform: Optional[PlatformSpec] = None
