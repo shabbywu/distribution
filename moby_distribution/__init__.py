@@ -15,7 +15,7 @@ from moby_distribution.spec.manifest import (
     OCIManifestSchema1,
 )
 
-__version__ = "0.7.2"
+__version__ = "0.7.3"
 __all__ = [
     "DockerRegistryV2Client",
     "Blob",
