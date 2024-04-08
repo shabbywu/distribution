@@ -5,7 +5,11 @@ import pytest
 import requests
 import requests_mock
 
-from pydantic import __version__
+try:
+    from pydantic import __version__ as pydantic_version
+except ImportError:
+    # pydantic <= 1.8.2 does not have __version__
+    from pydantic import VERSION as pydantic_version
 from moby_distribution.registry.auth import (
     DockerRegistryTokenAuthentication,
     HTTPBasicAuthentication,
@@ -25,7 +29,7 @@ def mock_adapter():
 
 @pytest.fixture
 def auth_response():
-    if __version__.startswith("2."):
+    if pydantic_version.startswith("2."):
         return {
             "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IlBZWU86VEVXVTpWN0pIOjI2SlY6QVFUWjpMSkMzOlNYVko6WEdIQTozNEYyOjJMQVE6WlJNSzpaN1E2In0.eyJpc3MiOiJhdXRoLmRvY2tlci5jb20iLCJzdWIiOiJqbGhhd24iLCJhdWQiOiJyZWdpc3RyeS5kb2NrZXIuY29tIiwiZXhwIjoxNDE1Mzg3MzE1LCJuYmYiOjE0MTUzODcwMTUsImlhdCI6MTQxNTM4NzAxNSwianRpIjoidFlKQ08xYzZjbnl5N2tBbjBjN3JLUGdiVjFIMWJGd3MiLCJhY2Nlc3MiOlt7InR5cGUiOiJyZXBvc2l0b3J5IiwibmFtZSI6InNhbWFsYmEvbXktYXBwIiwiYWN0aW9ucyI6WyJwdXNoIl19XX0.QhflHPfbd6eVF4lM9bwYpFZIV0PfikbyXuLx959ykRTBpe3CYnzs6YBK8FToVb5R47920PVLrh8zuLzdCr9t3w",
             "issued_at": "2009-11-10T23:00:00Z",
@@ -79,7 +83,7 @@ class TestDockerRegistryTokenAuthentication:
 
         authed = auth.authenticate("username", "password")
         assert isinstance(authed, TokenAuthorizationProvider)
-        if __version__.startswith("2."):
+        if pydantic_version.startswith("2."):
             assert (
                 authed.token_response.model_dump(mode="json", exclude_unset=True)
                 == auth_response

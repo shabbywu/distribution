@@ -1,7 +1,11 @@
 import json
 from pathlib import Path
 
-from pydantic import __version__
+try:
+    from pydantic import __version__ as pydantic_version
+except ImportError:
+    # pydantic <= 1.8.2 does not have __version__
+    from pydantic import VERSION as pydantic_version
 import pytest
 
 assets = Path(__file__).parent / "assets"
@@ -24,7 +28,7 @@ def oci_manifest_schema1_dict():
 
 @pytest.fixture
 def auth_response():
-    if __version__.startswith("2."):
+    if pydantic_version.startswith("2."):
         return json.loads((assets / "auth_response.pydantic_v2.json").read_text())
     else:
         return json.loads((assets / "auth_response.pydantic_v1.json").read_text())
@@ -32,7 +36,7 @@ def auth_response():
 
 @pytest.fixture
 def image_json_dict():
-    if __version__.startswith("2."):
+    if pydantic_version.startswith("2."):
         return json.loads((assets / "image_json.pydantic_v2.json").read_text())
     else:
         return json.loads((assets / "image_json.pydantic_v1.json").read_text())

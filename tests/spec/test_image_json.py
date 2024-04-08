@@ -1,11 +1,15 @@
 import json
 
-from pydantic import __version__
+try:
+    from pydantic import __version__ as pydantic_version
+except ImportError:
+    # pydantic <= 1.8.2 does not have __version__
+    from pydantic import VERSION as pydantic_version
 from moby_distribution.spec.image_json import ImageJSON
 
 
 def test_image_json(image_json_dict):
-    if __version__.startswith("2."):
+    if pydantic_version.startswith("2."):
         assert (
             ImageJSON(**image_json_dict).model_dump(mode="json", exclude_unset=True)
             == image_json_dict
