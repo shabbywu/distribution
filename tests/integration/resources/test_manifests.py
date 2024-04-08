@@ -3,7 +3,11 @@ import json
 
 import pytest
 
-from pydantic import __version__
+try:
+    from pydantic import __version__ as pydantic_version
+except ImportError:
+    # pydantic <= 1.8.2 does not have __version__
+    from pydantic import VERSION as pydantic_version
 from moby_distribution.registry.resources.manifests import ManifestRef, ManifestSchema1
 
 
@@ -53,7 +57,7 @@ class TestManifestRef:
     ):
         ref = ManifestRef(repo=repo, client=registry_client, reference=reference)
 
-        if __version__.startswith("2."):
+        if pydantic_version.startswith("2."):
             dumped = json.dumps(
                 ref.get(media_type).model_dump(mode="json", exclude_unset=True),
                 indent=3,

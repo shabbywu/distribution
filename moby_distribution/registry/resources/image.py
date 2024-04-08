@@ -9,7 +9,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, __version__
+from pydantic import BaseModel, Field
+
+try:
+    from pydantic import __version__ as pydantic_version
+except ImportError:
+    # pydantic <= 1.8.2 does not have __version__
+    from pydantic import VERSION as pydantic_version
 
 from moby_distribution.registry.client import DockerRegistryV2Client, default_client
 from moby_distribution.registry.resources import RepositoryResource
@@ -344,7 +350,7 @@ class ImageRef(RepositoryResource):
         if not self._dirty:
             return self._initial_config
         image_json = self.image_json
-        if __version__.startswith("2."):
+        if pydantic_version.startswith("2."):
             return json.dumps(
                 image_json.model_dump(
                     mode="json", exclude_unset=True, exclude_defaults=True
