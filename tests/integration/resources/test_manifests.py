@@ -1,7 +1,14 @@
 import hashlib
 import json
 
+import docker
 import pytest
+from moby_distribution.registry.resources.image import (
+    ImageRef,
+    LayerRef,
+    ManifestSchema2,
+)
+from moby_distribution.registry.client import URLBuilder
 
 try:
     from pydantic import __version__ as pydantic_version
@@ -74,3 +81,39 @@ class TestManifestRef:
                 descriptor.digest
                 == f"sha256:{hashlib.sha256(dumped.encode()).hexdigest()}"
             )
+
+
+class TestIntegration:
+    @pytest.fixture()
+    def docker_cli(self):
+        return docker.from_env()
+
+    @pytest.fixture(autouse=True)
+    def _init_image(
+        self,
+        registry_client,
+        tmp_path,
+        alpine_tar,
+        alpine_append_layer,
+        docker_cli,
+        registry_netloc,
+    ):
+        ref = ImageRef.from_tarball(
+            workplace=tmp_path,
+            src=alpine_tar,
+            to_repo="alpine",
+            to_reference="manifest",
+            client=registry_client,
+        )
+        ref.add_layer(LayerRef(local_path=alpine_append_layer))
+        ref.push()
+
+    def test_inspect(self, registry_client):
+        url = URLBuilder.build_manifests_url(
+            registry_client.api_base_url, repo="alpine", reference="manifest"
+        )
+        headers = {"Accept": ManifestSchema2.content_type()}
+        data = registry_client.get(url=url, headers=headers).json()
+        assert data["config"].get("urls", []) == []
+        for layer in data["layers"]:
+            assert layer.get("urls", []) == []
