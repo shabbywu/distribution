@@ -66,6 +66,7 @@ If no ssl: use http(80).
 If have ssl, but certificate is invalid:
   - try to ping the registry with https(443), if success, use it
   - otherwise, downgrade to http(80)
+
 If have ssl and valid certificate: use https(443)
 
 We provide an anonymous client connected to Docker Official Registry as default, you can find it at `moby_distribution.default_client`,
